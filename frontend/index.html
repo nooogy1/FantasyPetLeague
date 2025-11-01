@@ -4,61 +4,145 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fantasy Pet League</title>
-  <!-- Link your existing CSS -->
   <link rel="stylesheet" href="/frontend/css/style.css">
+  <style>
+    .auth-container {
+      max-width: 400px;
+      margin: 80px auto;
+      padding: 40px;
+    }
+    .auth-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+    .auth-tab-btn {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #bdc3c7;
+      background: white;
+      cursor: pointer;
+      border-radius: 4px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .auth-tab-btn.active {
+      background: #3498db;
+      color: white;
+      border-color: #3498db;
+    }
+    .auth-form {
+      display: none;
+    }
+    .auth-form.active {
+      display: block;
+    }
+  </style>
 </head>
-<body data-page="dashboard">
+<body data-page="login">
   <header>
     <div class="logo">🐾 Fantasy Pet League</div>
-    <nav>
-      <a href="/dashboard.html">Dashboard</a>
-      <a href="#" onclick="app.handleLogout(); return false;">Logout</a>
-    </nav>
   </header>
 
   <div class="container">
-    <!-- Page Header -->
-    <div class="page-header">
-      <h1>My Leagues</h1>
-      <p>Draft pets. Earn points. Win the league.</p>
-    </div>
+    <div class="auth-container">
+      <h1 style="text-align: center; margin-bottom: 30px;">Fantasy Pet League</h1>
+      
+      <!-- Auth Tabs -->
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" onclick="switchAuthTab('login')">Login</button>
+        <button class="auth-tab-btn" onclick="switchAuthTab('signup')">Sign Up</button>
+      </div>
 
-    <!-- Create League Card -->
-    <div class="card">
-      <div class="card-header">
-        <h2>Create a New League</h2>
-      </div>
-      <div class="card-body">
-        <form onsubmit="app.createLeague(event)">
-          <div class="form-group">
-            <label for="leagueName">League Name</label>
-            <input 
-              type="text" 
-              id="leagueName" 
-              name="leagueName" 
-              placeholder="e.g., Downtown Doggos" 
-              required
-            >
-          </div>
-          <button type="submit" class="btn btn-primary">Create League</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- Leagues List -->
-    <div class="card">
-      <div class="card-header">
-        <h2>Your Leagues</h2>
-      </div>
-      <div class="card-body">
-        <div id="leagues-list">
-          <div class="loader"></div>
+      <!-- Login Form -->
+      <form id="login-form" class="auth-form active" onsubmit="app.handleLogin(event)">
+        <div class="form-group">
+          <label for="login-passphrase">Passphrase</label>
+          <input 
+            type="text" 
+            id="login-passphrase" 
+            name="passphrase" 
+            placeholder="e.g., quickly violet corgi" 
+            required
+          >
+          <small style="color: #7f8c8d;">Format: adverb + adjective + breed</small>
         </div>
+        <button type="submit" class="btn btn-primary btn-block">Login</button>
+      </form>
+
+      <!-- Signup Form -->
+      <form id="signup-form" class="auth-form" onsubmit="app.handleSignup(event)">
+        <div class="form-group">
+          <label for="signup-passphrase">Create a Passphrase</label>
+          <input 
+            type="text" 
+            id="signup-passphrase" 
+            name="passphrase" 
+            placeholder="e.g., quickly violet corgi" 
+            required
+          >
+          <small style="color: #7f8c8d;">Format: adverb + adjective + breed</small>
+        </div>
+        <div class="form-group">
+          <label for="first-name">First Name (Optional)</label>
+          <input 
+            type="text" 
+            id="first-name" 
+            name="firstName" 
+            placeholder="John"
+          >
+        </div>
+        <div class="form-group">
+          <label for="city">City (Optional)</label>
+          <input 
+            type="text" 
+            id="city" 
+            name="city" 
+            placeholder="Houston"
+          >
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+      </form>
+
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1; text-align: center; color: #7f8c8d; font-size: 14px;">
+        <p><strong>How it works:</strong></p>
+        <p>1. Create an account with a memorable passphrase</p>
+        <p>2. Create or join a league with friends</p>
+        <p>3. Draft adoptable pets from your local shelter</p>
+        <p>4. Earn points when pets get adopted</p>
+        <p>5. Compete on the leaderboard! 🏆</p>
       </div>
     </div>
   </div>
 
-  <!-- Link your existing app.js -->
   <script src="/frontend/js/app.js"></script>
+  <script>
+    function switchAuthTab(tab) {
+      // Hide all forms
+      document.querySelectorAll('.auth-form').forEach(form => {
+        form.classList.remove('active');
+      });
+      document.querySelectorAll('.auth-tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Show selected form
+      if (tab === 'login') {
+        document.getElementById('login-form').classList.add('active');
+        document.querySelectorAll('.auth-tab-btn')[0].classList.add('active');
+      } else {
+        document.getElementById('signup-form').classList.add('active');
+        document.querySelectorAll('.auth-tab-btn')[1].classList.add('active');
+      }
+    }
+
+    // Check if already logged in
+    document.addEventListener('DOMContentLoaded', () => {
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        window.location.href = '/dashboard.html';
+      }
+    });
+  </script>
 </body>
 </html>
