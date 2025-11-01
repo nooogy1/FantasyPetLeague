@@ -118,14 +118,17 @@ async function handleLogin(event) {
       body: JSON.stringify({ passphrase }),
     });
 
-    if (!response) return;
+    if (!response) {
+      showAlert('Invalid passphrase. Please try again.', 'danger');
+      return;
+    }
 
     setToken(response.token);
     setUser(response.user);
     showAlert('Logged in successfully!', 'success');
     setTimeout(() => window.location.href = '/dashboard.html', 1500);
   } catch (error) {
-    showAlert(error.message, 'danger');
+    showAlert('Invalid passphrase. Please try again.', 'danger');
   }
 }
 
