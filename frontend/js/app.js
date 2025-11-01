@@ -42,6 +42,8 @@ async function apiCall(endpoint, options = {}) {
   }
 
   try {
+    console.log(`API Call: ${options.method || 'GET'} ${endpoint}`);
+    
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
@@ -49,17 +51,20 @@ async function apiCall(endpoint, options = {}) {
 
     // Check for auth errors
     if (response.status === 401 || response.status === 403) {
+      console.warn('Auth error, clearing localStorage');
       clearAuth();
       window.location.href = '/index.html?error=auth';
       return null;
     }
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || `API Error: ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('API Response:', data);
+    return data;
   } catch (error) {
     console.error('API Error:', error);
     throw error;
@@ -67,6 +72,8 @@ async function apiCall(endpoint, options = {}) {
 }
 
 function showAlert(message, type = 'info') {
+  console.log(`Alert [${type}]: ${message}`);
+  
   const alertDiv = document.createElement('div');
   alertDiv.className = `alert alert-${type}`;
   alertDiv.innerHTML = `
@@ -136,8 +143,7 @@ async function handleLogin(event) {
   // Get passphrase from hidden input
   const passphrase = document.getElementById('login-passphrase').value;
   
-  // Get first name - need to derive from passphrase or ask separately
-  // For now, let's add a first name field
+  // Get first name
   const firstNameInput = document.getElementById('login-first-name');
   const firstName = firstNameInput?.value;
 
@@ -199,11 +205,19 @@ function checkAuth() {
 
 async function loadLeagues() {
   try {
+    console.log('Loading leagues...');
     const leagues = await apiCall('/api/leagues');
     
-    if (!leagues) return;
+    if (!leagues) {
+      console.warn('No leagues response');
+      return;
+    }
     
     const container = document.getElementById('leagues-list');
+    if (!container) {
+      console.warn('No leagues-list container');
+      return;
+    }
     
     if (leagues.length === 0) {
       container.innerHTML = '<p>No leagues yet. Create one to get started!</p>';
@@ -214,7 +228,7 @@ async function loadLeagues() {
       <div class="card">
         <div class="card-header">
           <h3>${league.name}</h3>
-          <button class="btn btn-primary btn-small" onclick="viewLeague('${league.id}')">View</button>
+          <button class="btn btn-primary btn-small" onclick="app.viewLeague('${league.id}')">View</button>
         </div>
         <div class="card-body">
           <p>Created: ${new Date(league.created_at).toLocaleDateString()}</p>
@@ -238,6 +252,8 @@ async function createLeague(event) {
   }
 
   try {
+    console.log('Creating league:', name);
+    
     const result = await apiCall('/api/leagues', {
       method: 'POST',
       body: JSON.stringify({ name }),
@@ -249,13 +265,264 @@ async function createLeague(event) {
     form.reset();
     loadLeagues();
   } catch (error) {
+    console.error('Error creating league:', error);
     showAlert('Error creating league: ' + error.message, 'danger');
+  }
+}
+
+function viewLeague(leagueId) {
+  console.log('Viewing league:', leagueId);
+  window.location.href = `/league.html?id=${leagueId}`;
+}
+
+// ===== Pets =====
+
+async function loadAvailablePets(filters = {}) {
+  try {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+
+    const url = params.toString() ? `/api/pets?${params}` : '/api/pets';
+    const pets = await apiCall(url);
+    
+    if (!pets) return;
+    
+    const container = document.getElementById('pets-list');
+    if (!container) return;
+
+    if (pets.length === 0) {
+      container.innerHTML = '<p>No pets available.</p>';
+      return;
+    }
+
+    container.innerHTML = pets.map(pet => `
+      <div class="pet-card">
+        <div class="pet-card-header">
+          <h3>${pet.name}</h3>
+          <div class="pet-card-breed">${pet.breed}</div>
+        </div>
+        <div class="pet-card-body">
+          <dl class="pet-info">
+            <dt>Type:</dt><dd>${pet.animal_type}</dd>
+            <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd>
+            <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd>
+            <dt>Source:</dt><dd><span class="badge">${pet.source}</span></dd>
+          </dl>
+          <button class="btn btn-primary btn-block" onclick="app.draftPet('${pet.pet_id}')">Draft</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (error) {
+    console.error('Error loading pets:', error);
+    showAlert('Error loading pets: ' + error.message, 'danger');
+  }
+}
+
+async function draftPet(petId) {
+  const leagueId = new URLSearchParams(window.location.search).get('id');
+  if (!leagueId) {
+    showAlert('Please select a league first', 'warning');
+    return;
+  }
+
+  try {
+    console.log('Drafting pet:', petId, 'to league:', leagueId);
+    
+    const result = await apiCall('/api/drafting', {
+      method: 'POST',
+      body: JSON.stringify({ leagueId, petId }),
+    });
+
+    if (!result) return;
+
+    showAlert('Pet drafted successfully!', 'success');
+    loadAvailablePets();
+  } catch (error) {
+    console.error('Error drafting pet:', error);
+    showAlert('Error drafting pet: ' + error.message, 'danger');
+  }
+}
+
+// ===== Roster =====
+
+async function loadRoster(leagueId) {
+  try {
+    console.log('Loading roster for league:', leagueId);
+    
+    const roster = await apiCall(`/api/drafting/${leagueId}`);
+    
+    if (!roster) return;
+    
+    const container = document.getElementById('roster-list');
+    if (!container) return;
+
+    if (roster.length === 0) {
+      container.innerHTML = '<p>No pets drafted yet.</p>';
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Pet Name</th>
+            <th>Breed</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${roster.map(pet => `
+            <tr>
+              <td>${pet.name}</td>
+              <td>${pet.breed}</td>
+              <td>${pet.animal_type}</td>
+              <td><span class="badge ${pet.status === 'available' ? 'badge-success' : 'badge-danger'}">${pet.status}</span></td>
+              <td>
+                <button class="btn btn-danger btn-small" onclick="app.undraftPet('${pet.pet_id}', '${leagueId}')">Remove</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (error) {
+    console.error('Error loading roster:', error);
+    showAlert('Error loading roster: ' + error.message, 'danger');
+  }
+}
+
+async function undraftPet(petId, leagueId) {
+  if (!confirm('Remove this pet from your roster?')) return;
+
+  try {
+    console.log('Undrafting pet:', petId, 'from league:', leagueId);
+    
+    const result = await apiCall(`/api/drafting/${petId}/${leagueId}`, {
+      method: 'DELETE',
+    });
+
+    if (!result) return;
+
+    showAlert('Pet removed from roster', 'success');
+    loadRoster(leagueId);
+  } catch (error) {
+    console.error('Error removing pet:', error);
+    showAlert('Error removing pet: ' + error.message, 'danger');
+  }
+}
+
+// ===== Leaderboard =====
+
+async function loadLeaderboard(leagueId) {
+  try {
+    console.log('Loading leaderboard for league:', leagueId);
+    
+    const leaderboard = await apiCall(`/api/leaderboard/${leagueId}`);
+    
+    if (!leaderboard) return;
+    
+    const container = document.getElementById('leaderboard-list');
+    if (!container) return;
+
+    if (leaderboard.length === 0) {
+      container.innerHTML = '<p>No players in this league yet.</p>';
+      return;
+    }
+
+    container.innerHTML = leaderboard.map((entry, idx) => {
+      let medal = '';
+      if (idx === 0) medal = '🥇';
+      else if (idx === 1) medal = '🥈';
+      else if (idx === 2) medal = '🥉';
+
+      return `
+        <div class="leaderboard-entry">
+          <div class="leaderboard-rank ${idx === 0 ? 'first' : idx === 1 ? 'second' : idx === 2 ? 'third' : ''}">#${entry.rank} ${medal}</div>
+          <div class="leaderboard-info">
+            <div class="leaderboard-name">${entry.first_name || 'Anonymous'}</div>
+            <div class="leaderboard-city">${entry.city || 'Location unknown'}</div>
+          </div>
+          <div class="leaderboard-points">${entry.total_points} pts</div>
+        </div>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error loading leaderboard:', error);
+    showAlert('Error loading leaderboard: ' + error.message, 'danger');
+  }
+}
+
+// ===== Scraper =====
+
+async function triggerScrape() {
+  const btn = document.getElementById('scrape-btn');
+  const status = document.getElementById('scrape-status');
+  
+  if (!btn) {
+    console.warn('Scrape button not found');
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.textContent = '🔄 Scraping...';
+  if (status) status.textContent = 'Scraping pets from Houston shelters...';
+
+  try {
+    console.log('Triggering scrape...');
+    
+    // Try different possible endpoints
+    let result;
+    try {
+      result = await apiCall('/api/admin/scrape', { method: 'POST' });
+    } catch (e1) {
+      console.log('First endpoint failed, trying second...');
+      try {
+        result = await apiCall('/admin/scrape', { method: 'POST' });
+      } catch (e2) {
+        console.log('Second endpoint failed, trying third...');
+        result = await apiCall('/scrape', { method: 'POST' });
+      }
+    }
+
+    if (!result) {
+      showAlert('Scrape not available (admin only or not configured)', 'warning');
+      if (status) status.textContent = 'Scrape feature not available';
+      return;
+    }
+
+    if (status) {
+      status.innerHTML = `
+        ✅ <strong>Scrape Complete!</strong><br>
+        Found: ${result.pets_found} pets | New: ${result.new_pets} | Duration: ${result.duration}
+      `;
+      status.style.color = '#27ae60';
+    }
+
+    showAlert(`Successfully scraped ${result.new_pets} new pets!`, 'success');
+    
+    // Reload leagues after scrape
+    setTimeout(() => loadLeagues(), 2000);
+  } catch (error) {
+    console.log('Scrape error (this is normal if not admin):', error.message);
+    if (status) {
+      status.textContent = `Scrape unavailable: ${error.message}`;
+      status.style.color = '#e74c3c';
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Refresh Pet Database';
   }
 }
 
 // ===== Page Initialization =====
 
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('Page loaded, initializing...');
+  
   // Check for error messages
   const params = new URLSearchParams(window.location.search);
   
@@ -269,27 +536,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize page-specific functionality
   const page = document.body.getAttribute('data-page');
+  console.log('Page type:', page);
   
   switch (page) {
     case 'dashboard':
       if (checkAuth()) {
         const user = getUser();
         if (user) {
-          document.getElementById('user-name').textContent = user.first_name || 'Player';
+          const userNameEl = document.getElementById('user-name');
+          if (userNameEl) {
+            userNameEl.textContent = user.first_name || 'Player';
+          }
         }
         loadLeagues();
+      }
+      break;
+      
+    case 'league':
+      if (checkAuth()) {
+        const leagueId = new URLSearchParams(window.location.search).get('id');
+        if (leagueId) {
+          console.log('Loading league view for:', leagueId);
+          loadRoster(leagueId);
+          loadLeaderboard(leagueId);
+          loadAvailablePets();
+        }
       }
       break;
   }
 });
 
 // ===== Export for use in HTML =====
+// Make sure ALL functions are exported to window.app
 window.app = {
+  // Auth functions
   handleSignup,
   handleLogin,
   handleLogout,
+  checkAuth,
+  
+  // League functions
   loadLeagues,
   createLeague,
+  viewLeague,
+  
+  // Pet functions
+  loadAvailablePets,
+  draftPet,
+  
+  // Roster functions
+  loadRoster,
+  undraftPet,
+  
+  // Leaderboard functions
+  loadLeaderboard,
+  
+  // Scraper functions
+  triggerScrape,
+  
+  // Utility functions
   showAlert,
-  checkAuth,
 };
+
+console.log('✓ app.js loaded and ready');
+console.log('Available functions:', Object.keys(window.app));

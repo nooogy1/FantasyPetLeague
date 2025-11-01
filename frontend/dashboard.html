@@ -91,16 +91,10 @@
 
   <script src="/frontend/js/app.js"></script>
   <script>
+    // Make sure everything initializes after scripts load
     document.addEventListener('DOMContentLoaded', () => {
-      const user = JSON.parse(localStorage.getItem('user_data'));
-      if (user && user.first_name) {
-        document.getElementById('user-name').textContent = user.first_name;
-      } else {
-        document.getElementById('user-name').textContent = 'Player';
-      }
-      
-      app.checkAuth();
-      app.loadLeagues();
+      console.log('Dashboard initialized');
+      console.log('window.app available:', !!window.app);
     });
   </script>
 </body>
