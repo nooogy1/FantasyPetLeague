@@ -49,9 +49,10 @@ async function apiCall(endpoint, options = {}) {
       headers,
     });
 
-    // Check for auth errors
-    if (response.status === 401 || response.status === 403) {
-      console.warn('Auth error, clearing localStorage');
+    // IMPORTANT: Only clear auth on ACTUAL auth errors (401 from auth endpoints)
+    // Don't clear auth on other errors like 404, 500, etc.
+    if ((response.status === 401 || response.status === 403) && endpoint.includes('/auth')) {
+      console.warn('Auth error on /auth endpoint, clearing localStorage');
       clearAuth();
       window.location.href = '/index.html?error=auth';
       return null;
@@ -456,7 +457,7 @@ async function loadLeaderboard(leagueId) {
   }
 }
 
-// ===== Scraper - NOW WORKS! =====
+// ===== Scraper =====
 
 async function triggerScrape() {
   const btn = document.getElementById('scrape-btn');
@@ -467,7 +468,7 @@ async function triggerScrape() {
     return;
   }
 
-  // Check if user is admin
+  // Check if user is logged in
   const token = getToken();
   if (!token) {
     showAlert('You must be logged in to run the scraper', 'warning');
@@ -546,6 +547,8 @@ async function triggerScrape() {
     
     if (error.message.includes('Admin access required') || error.message.includes('403')) {
       showAlert('Only admins can run the scraper', 'warning');
+    } else if (error.message.includes('404')) {
+      showAlert('Scraper endpoint not found. Make sure admin routes are registered.', 'danger');
     } else {
       showAlert(`Scraper error: ${error.message}`, 'danger');
     }

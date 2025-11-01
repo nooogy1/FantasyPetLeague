@@ -12,35 +12,64 @@ const pool = new Pool({
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 
+console.log('[Admin Routes] Loaded with JWT_SECRET:', JWT_SECRET ? '✓' : '✗');
+
 // ============ MIDDLEWARE ============
 
 const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) return res.sendStatus(401);
+    console.log(`[Auth Check] Token present: ${!!token}, Header: ${authHeader ? 'yes' : 'no'}`);
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
+    if (!token) {
+      console.log('[Auth] No token provided');
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (err) {
+        console.log('[Auth] Token verification failed:', err.message);
+        return res.status(403).json({ error: 'Invalid or expired token' });
+      }
+      console.log('[Auth] Token valid for user:', user.userId);
+      req.user = user;
+      next();
+    });
+  } catch (error) {
+    console.error('[Auth] Unexpected error:', error.message);
+    res.status(500).json({ error: 'Authentication error: ' + error.message });
+  }
 };
 
 const requireAdmin = async (req, res, next) => {
   try {
+    console.log('[Admin Check] Checking admin status for user:', req.user.userId);
+
     const result = await pool.query(
       'SELECT is_admin FROM users WHERE id = $1',
       [req.user.userId]
     );
 
-    if (!result.rows[0]?.is_admin) {
+    if (!result.rows[0]) {
+      console.log('[Admin] User not found:', req.user.userId);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const isAdmin = result.rows[0].is_admin;
+    console.log('[Admin] User is_admin:', isAdmin);
+
+    if (!isAdmin) {
+      console.log('[Admin] Access denied - not an admin');
       return res.status(403).json({ error: 'Admin access required' });
     }
 
+    console.log('[Admin] Access granted');
     next();
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[Admin] Database error:', error.message);
+    res.status(500).json({ error: 'Admin check error: ' + error.message });
   }
 };
 
@@ -48,10 +77,14 @@ const requireAdmin = async (req, res, next) => {
 
 router.post('/scrape', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    console.log('[Admin] Scraper triggered by user:', req.user.userId);
+    console.log('[Scraper] ====================================');
+    console.log('[Scraper] Scraper triggered by user:', req.user.userId);
     
     // Spawn Python scraper as child process (non-blocking)
     const pythonScript = path.join(__dirname, '../../scraper/daily_scraper.py');
+    
+    console.log('[Scraper] Python script path:', pythonScript);
+    console.log('[Scraper] Starting scraper process...');
     
     const pythonProcess = spawn('python3', [pythonScript], {
       env: { ...process.env },
@@ -61,18 +94,23 @@ router.post('/scrape', authenticateToken, requireAdmin, async (req, res) => {
     let output = '';
     let errorOutput = '';
     let timedOut = false;
+    let responseSent = false;
 
-    // Set timeout - if scraper takes > 120 seconds, stop waiting
+    // Set timeout - if scraper takes > 5 seconds, return and let it run in background
     const timeout = setTimeout(() => {
       timedOut = true;
-      console.log('[Admin] Scraper still running, returning response to client');
-      res.json({
-        success: true,
-        status: 'running',
-        message: 'Scraper started and running in background. Check admin logs for results.',
-        note: 'Scraper typically takes 30-60 seconds to complete.',
-      });
-    }, 5000); // Wait up to 5 seconds for response
+      console.log('[Scraper] Timeout reached (5s), returning response and continuing in background');
+      
+      if (!responseSent) {
+        responseSent = true;
+        res.json({
+          success: true,
+          status: 'running',
+          message: 'Scraper started and running in background. Check admin logs for results.',
+          note: 'Scraper typically takes 30-60 seconds to complete.',
+        });
+      }
+    }, 5000); // Wait up to 5 seconds for initial response
 
     pythonProcess.stdout.on('data', (data) => {
       output += data.toString();
@@ -87,18 +125,24 @@ router.post('/scrape', authenticateToken, requireAdmin, async (req, res) => {
     pythonProcess.on('close', (code) => {
       clearTimeout(timeout);
 
+      console.log('[Scraper] Process closed with code:', code);
+
       if (timedOut) {
         // Already sent response, just log
-        console.log('[Admin] Scraper process completed with code:', code);
+        console.log('[Scraper] Already sent response, just logging completion');
         return;
       }
 
       if (code !== 0) {
-        console.error('[Admin] Scraper failed with code:', code);
-        return res.status(500).json({
-          success: false,
-          error: `Scraper failed: ${errorOutput}`,
-        });
+        console.error('[Scraper] Failed with code:', code);
+        if (!responseSent) {
+          responseSent = true;
+          return res.status(500).json({
+            success: false,
+            error: `Scraper failed: ${errorOutput}`,
+          });
+        }
+        return;
       }
 
       try {
@@ -107,26 +151,35 @@ router.post('/scrape', authenticateToken, requireAdmin, async (req, res) => {
         const jsonLine = lines[lines.length - 1];
         const result = JSON.parse(jsonLine);
 
-        console.log('[Admin] Scraper complete:', result);
-        res.json({
-          success: true,
-          status: 'completed',
-          ...result,
-        });
+        console.log('[Scraper] Complete:', result);
+        
+        if (!responseSent) {
+          responseSent = true;
+          res.json({
+            success: true,
+            status: 'completed',
+            ...result,
+          });
+        }
       } catch (error) {
-        console.error('[Admin] Failed to parse scraper output:', error);
-        res.json({
-          success: true,
-          status: 'completed',
-          message: 'Scraper completed. Check logs for details.',
-        });
+        console.error('[Scraper] Failed to parse output:', error);
+        if (!responseSent) {
+          responseSent = true;
+          res.json({
+            success: true,
+            status: 'completed',
+            message: 'Scraper completed. Check logs for details.',
+          });
+        }
       }
     });
 
     pythonProcess.on('error', (error) => {
       clearTimeout(timeout);
-      console.error('[Admin] Failed to start scraper:', error);
-      if (!timedOut) {
+      console.error('[Scraper] Failed to start:', error.message);
+      
+      if (!responseSent) {
+        responseSent = true;
         res.status(500).json({
           success: false,
           error: `Failed to start scraper: ${error.message}`,
@@ -136,15 +189,17 @@ router.post('/scrape', authenticateToken, requireAdmin, async (req, res) => {
 
     // Unref to allow parent process to exit
     pythonProcess.unref();
+    
+    console.log('[Scraper] Process spawned successfully');
+    console.log('[Scraper] ====================================');
   } catch (error) {
-    console.error('[Admin] Scraper error:', error);
+    console.error('[Scraper] Unexpected error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // ============ BREED POINTS ENDPOINTS ============
 
-// GET /admin/breeds - List all breed points with counts
 router.get('/breeds', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -166,7 +221,6 @@ router.get('/breeds', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// GET /admin/breeds/missing - Get breeds in pets table not in breed_points
 router.get('/breeds/missing', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -183,7 +237,6 @@ router.get('/breeds/missing', authenticateToken, requireAdmin, async (req, res) 
   }
 });
 
-// POST /admin/breeds/auto-populate - Auto-populate missing breeds with default 1 point
 router.post('/breeds/auto-populate', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -206,7 +259,6 @@ router.post('/breeds/auto-populate', authenticateToken, requireAdmin, async (req
   }
 });
 
-// PUT /admin/breeds/:breedId - Update breed points
 router.put('/breeds/:breedId', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { breedId } = req.params;
@@ -231,7 +283,6 @@ router.put('/breeds/:breedId', authenticateToken, requireAdmin, async (req, res)
   }
 });
 
-// POST /admin/breeds - Create new breed point entry
 router.post('/breeds', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { breed, points } = req.body;
@@ -255,7 +306,6 @@ router.post('/breeds', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// DELETE /admin/breeds/:breedId - Delete breed point entry
 router.delete('/breeds/:breedId', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { breedId } = req.params;
@@ -277,7 +327,6 @@ router.delete('/breeds/:breedId', authenticateToken, requireAdmin, async (req, r
 
 // ============ STATISTICS ============
 
-// GET /admin/stats - Overall statistics
 router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const stats = await Promise.all([
@@ -304,7 +353,6 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// GET /admin/scraper-logs - Recent scraper runs
 router.get('/scraper-logs', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
