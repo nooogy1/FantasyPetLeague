@@ -75,7 +75,7 @@ const requireAdmin = async (req, res, next) => {
 
 // ============ TRIGGER PET SCRAPER ============
 
-router.post('/scrape', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/scrape', authenticateToken, async (req, res) => {
   try {
     console.log('[Scraper] ====================================');
     console.log('[Scraper] Scraper triggered by user:', req.user.userId);
