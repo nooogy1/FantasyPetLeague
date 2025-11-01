@@ -50,20 +50,32 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Passphrase required' });
     }
 
-    // TODO: Improve login flow - currently fetches first user
-    // Should lookup user by unique identifier (email, username, etc)
-    const result = await pool.query(
-      `SELECT id, first_name, city, created_at FROM users LIMIT 1`
-    );
+    // Find user by checking passphrase against all users
+    const result = await pool.query('SELECT id, first_name, city, passphrase_hash FROM users');
 
-    if (result.rows.length === 0) {
+    let user = null;
+    for (const row of result.rows) {
+      const match = await bcrypt.compare(passphrase, row.passphrase_hash);
+      if (match) {
+        user = row;
+        break;
+      }
+    }
+
+    if (!user) {
       return res.status(401).json({ error: 'Invalid passphrase' });
     }
 
-    const user = result.rows[0];
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ user, token });
+    res.json({ 
+      user: {
+        id: user.id,
+        first_name: user.first_name,
+        city: user.city
+      },
+      token 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
