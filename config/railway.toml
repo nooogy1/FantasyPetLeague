@@ -1,0 +1,10 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python daily_scraper.py"
+restartPolicyType = "never"
+
+[[crons]]
+command = "python daily_scraper.py"
+schedule = "0 2 * * *"
