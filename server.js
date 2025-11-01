@@ -10,7 +10,11 @@ require('dotenv').config();
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(express.static(path.join(__dirname))); // Serve static files
+
+// ============ SERVE STATIC FILES ============
+// Serve frontend files from root and subdirectories
+app.use(express.static(path.join(__dirname, 'frontend')));
+app.use(express.static(path.join(__dirname)));
 
 // ============ IMPORT ROUTE MODULES ============
 
@@ -38,9 +42,25 @@ app.use('/leaderboard', leaderboardRoutes);
 app.use('/pets', petRoutes);
 app.use('/admin', adminRoutes);
 
-// Serve admin dashboard
+// Serve HTML pages
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/index.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 app.get('/admin-dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/dashboard.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/league.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // ============ HEALTH CHECK ============
@@ -79,5 +99,6 @@ if (process.env.DISCORD_BOT_TOKEN) {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Frontend: http://localhost:${PORT}`);
   console.log(`Admin dashboard: http://localhost:${PORT}/admin-dashboard`);
 });
