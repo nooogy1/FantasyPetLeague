@@ -9,7 +9,7 @@ const pool = new Pool({
 
 // ============ GET LEAGUE LEADERBOARD ============
 
-router.get('/league/:leagueId', async (req, res) => {
+router.get('/:leagueId', async (req, res) => {
   try {
     const { leagueId } = req.params;
     const { limit = 100 } = req.query;
@@ -19,12 +19,16 @@ router.get('/league/:leagueId', async (req, res) => {
         u.id,
         u.first_name,
         u.city,
-        lc.total_points,
-        ROW_NUMBER() OVER (ORDER BY lc.total_points DESC) as rank
-       FROM leaderboard_cache lc
-       JOIN users u ON u.id = lc.user_id
-       WHERE lc.league_id = $1
-       ORDER BY lc.total_points DESC
+        COALESCE(lc.total_points, 0) as total_points,
+        ROW_NUMBER() OVER (ORDER BY COALESCE(lc.total_points, 0) DESC) as rank
+       FROM (
+         SELECT DISTINCT re.user_id
+         FROM roster_entries re
+         WHERE re.league_id = $1
+       ) users_in_league
+       JOIN users u ON u.id = users_in_league.user_id
+       LEFT JOIN leaderboard_cache lc ON lc.user_id = u.id AND lc.league_id = $1
+       ORDER BY COALESCE(lc.total_points, 0) DESC
        LIMIT $2`,
       [leagueId, parseInt(limit)]
     );
@@ -47,11 +51,11 @@ router.get('/', async (req, res) => {
         u.id,
         u.first_name,
         u.city,
-        SUM(lc.total_points) as total_points,
+        SUM(COALESCE(lc.total_points, 0)) as total_points,
         COUNT(DISTINCT lc.league_id) as leagues_joined,
-        ROW_NUMBER() OVER (ORDER BY SUM(lc.total_points) DESC) as rank
-       FROM leaderboard_cache lc
-       JOIN users u ON u.id = lc.user_id
+        ROW_NUMBER() OVER (ORDER BY SUM(COALESCE(lc.total_points, 0)) DESC) as rank
+       FROM users u
+       LEFT JOIN leaderboard_cache lc ON lc.user_id = u.id
        GROUP BY u.id, u.first_name, u.city
        ORDER BY total_points DESC
        LIMIT $1`,
@@ -76,11 +80,11 @@ router.get('/user/:userId/league/:leagueId', async (req, res) => {
         u.id,
         u.first_name,
         u.city,
-        lc.total_points,
-        ROW_NUMBER() OVER (ORDER BY lc.total_points DESC) as rank
-       FROM leaderboard_cache lc
-       JOIN users u ON u.id = lc.user_id
-       WHERE lc.league_id = $1 AND lc.user_id = $2`,
+        COALESCE(lc.total_points, 0) as total_points,
+        ROW_NUMBER() OVER (ORDER BY COALESCE(lc.total_points, 0) DESC) as rank
+       FROM users u
+       LEFT JOIN leaderboard_cache lc ON lc.user_id = u.id AND lc.league_id = $1
+       WHERE u.id = $2`,
       [leagueId, userId]
     );
 
@@ -106,11 +110,11 @@ router.get('/user/:userId', async (req, res) => {
         u.id,
         u.first_name,
         u.city,
-        SUM(lc.total_points) as total_points,
+        SUM(COALESCE(lc.total_points, 0)) as total_points,
         COUNT(DISTINCT lc.league_id) as leagues_joined,
-        ROW_NUMBER() OVER (ORDER BY SUM(lc.total_points) DESC) as rank
-       FROM leaderboard_cache lc
-       JOIN users u ON u.id = lc.user_id
+        ROW_NUMBER() OVER (ORDER BY SUM(COALESCE(lc.total_points, 0)) DESC) as rank
+       FROM users u
+       LEFT JOIN leaderboard_cache lc ON lc.user_id = u.id
        WHERE u.id = $1
        GROUP BY u.id, u.first_name, u.city`,
       [userId]
@@ -138,11 +142,11 @@ router.get('/top/alltime', async (req, res) => {
         u.id,
         u.first_name,
         u.city,
-        SUM(lc.total_points) as total_points,
+        SUM(COALESCE(lc.total_points, 0)) as total_points,
         COUNT(DISTINCT lc.league_id) as leagues_joined,
-        ROW_NUMBER() OVER (ORDER BY SUM(lc.total_points) DESC) as rank
-       FROM leaderboard_cache lc
-       JOIN users u ON u.id = lc.user_id
+        ROW_NUMBER() OVER (ORDER BY SUM(COALESCE(lc.total_points, 0)) DESC) as rank
+       FROM users u
+       LEFT JOIN leaderboard_cache lc ON lc.user_id = u.id
        GROUP BY u.id, u.first_name, u.city
        ORDER BY total_points DESC
        LIMIT $1`,
@@ -209,10 +213,10 @@ router.get('/stats/:leagueId', async (req, res) => {
     ]);
 
     res.json({
-      player_count: stats[0].rows[0].player_count,
-      total_points: stats[1].rows[0].total_points,
-      avg_points: Math.round(stats[2].rows[0].avg_points),
-      max_points: stats[3].rows[0].max_points
+      player_count: parseInt(stats[0].rows[0].player_count) || 0,
+      total_points: parseInt(stats[1].rows[0].total_points) || 0,
+      avg_points: Math.round(stats[2].rows[0].avg_points) || 0,
+      max_points: parseInt(stats[3].rows[0].max_points) || 0
     });
   } catch (error) {
     console.error(error);

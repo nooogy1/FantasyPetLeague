@@ -68,7 +68,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
 // ============ GET MY ROSTER ============
 
-router.get('/league/:leagueId', authenticateToken, async (req, res) => {
+router.get('/:leagueId', authenticateToken, async (req, res) => {
   try {
     const { leagueId } = req.params;
     const userId = req.user.userId;
