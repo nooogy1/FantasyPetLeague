@@ -7,164 +7,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// ============ LIST PETS WITH FILTERS ============
-
-router.get('/', async (req, res) => {
-  try {
-    const { type, status, source, breed, limit = 100, offset = 0 } = req.query;
-    let query = `SELECT * FROM pets WHERE 1=1`;
-    const params = [];
-
-    if (type) {
-      params.push(type.charAt(0).toUpperCase() + type.slice(1).toLowerCase().replace('s', ''));
-      query += ` AND animal_type = $${params.length}`;
-    }
-
-    if (status) {
-      params.push(status);
-      query += ` AND status = $${params.length}`;
-    }
-
-    if (source) {
-      params.push(source);
-      query += ` AND source = $${params.length}`;
-    }
-
-    if (breed) {
-      params.push(`%${breed}%`);
-      query += ` AND breed ILIKE $${params.length}`;
-    }
-
-    query += ` ORDER BY first_seen DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(parseInt(limit));
-    params.push(parseInt(offset));
-
-    const result = await pool.query(query, params);
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============ GET PET BY ID ============
-
-router.get('/id/:petId', async (req, res) => {
-  try {
-    const { petId } = req.params;
-
-    const result = await pool.query(
-      `SELECT * FROM pets WHERE pet_id = $1`,
-      [petId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Pet not found' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============ GET AVAILABLE PETS COUNT ============
-
-router.get('/count/available', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT COUNT(*) as count FROM pets WHERE status = 'available'`
-    );
-
-    res.json({ available: parseInt(result.rows[0].count) });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============ GET PETS BY TYPE ============
-
-router.get('/type/:animalType', async (req, res) => {
-  try {
-    const { animalType } = req.params;
-    const { status = 'available', limit = 50 } = req.query;
-
-    const result = await pool.query(
-      `SELECT * FROM pets 
-       WHERE animal_type = $1 AND status = $2
-       ORDER BY first_seen DESC
-       LIMIT $3`,
-      [animalType, status, parseInt(limit)]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============ GET PETS BY BREED ============
-
-router.get('/breed/:breed', async (req, res) => {
-  try {
-    const { breed } = req.params;
-    const { status = 'available', limit = 50 } = req.query;
-
-    const result = await pool.query(
-      `SELECT * FROM pets 
-       WHERE breed ILIKE $1 AND status = $2
-       ORDER BY first_seen DESC
-       LIMIT $3`,
-      [`%${breed}%`, status, parseInt(limit)]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============ GET RECENTLY ADOPTED PETS ============
-
-router.get('/adopted/recent', async (req, res) => {
-  try {
-    const { limit = 20 } = req.query;
-
-    const result = await pool.query(
-      `SELECT * FROM pets 
-       WHERE status = 'removed'
-       ORDER BY last_seen DESC
-       LIMIT $1`,
-      [parseInt(limit)]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ============ GET NEW PETS ============
-
-router.get('/new/today', async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT * FROM pets 
-       WHERE first_seen = CURRENT_DATE
-       ORDER BY created_at DESC`
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// ============ SPECIFIC ROUTES FIRST (before generic routes) ============
 
 // ============ GET PET STATISTICS ============
 
@@ -231,6 +74,167 @@ router.get('/stats/draft-popularity', async (req, res) => {
       [parseInt(limit)]
     );
 
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GET AVAILABLE PETS COUNT ============
+
+router.get('/count/available', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*) as count FROM pets WHERE status = 'available'`
+    );
+
+    res.json({ available: parseInt(result.rows[0].count) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GET RECENTLY ADOPTED PETS ============
+
+router.get('/adopted/recent', async (req, res) => {
+  try {
+    const { limit = 20 } = req.query;
+
+    const result = await pool.query(
+      `SELECT * FROM pets 
+       WHERE status = 'removed'
+       ORDER BY last_seen DESC
+       LIMIT $1`,
+      [parseInt(limit)]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GET NEW PETS ============
+
+router.get('/new/today', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM pets 
+       WHERE first_seen = CURRENT_DATE
+       ORDER BY created_at DESC`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GET PETS BY TYPE ============
+
+router.get('/type/:animalType', async (req, res) => {
+  try {
+    const { animalType } = req.params;
+    const { status = 'available', limit = 50 } = req.query;
+
+    const result = await pool.query(
+      `SELECT * FROM pets 
+       WHERE animal_type = $1 AND status = $2
+       ORDER BY first_seen DESC
+       LIMIT $3`,
+      [animalType, status, parseInt(limit)]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GET PETS BY BREED ============
+
+router.get('/breed/:breed', async (req, res) => {
+  try {
+    const { breed } = req.params;
+    const { status = 'available', limit = 50 } = req.query;
+
+    const result = await pool.query(
+      `SELECT * FROM pets 
+       WHERE breed ILIKE $1 AND status = $2
+       ORDER BY first_seen DESC
+       LIMIT $3`,
+      [`%${breed}%`, status, parseInt(limit)]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GET PET BY ID ============
+
+router.get('/id/:petId', async (req, res) => {
+  try {
+    const { petId } = req.params;
+
+    const result = await pool.query(
+      `SELECT * FROM pets WHERE pet_id = $1`,
+      [petId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Pet not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GENERIC ROUTES LAST ============
+
+// ============ LIST PETS WITH FILTERS ============
+
+router.get('/', async (req, res) => {
+  try {
+    const { type, status, source, breed, limit = 100, offset = 0 } = req.query;
+    let query = `SELECT * FROM pets WHERE 1=1`;
+    const params = [];
+
+    if (type) {
+      params.push(type.charAt(0).toUpperCase() + type.slice(1).toLowerCase().replace('s', ''));
+      query += ` AND animal_type = $${params.length}`;
+    }
+
+    if (status) {
+      params.push(status);
+      query += ` AND status = $${params.length}`;
+    }
+
+    if (source) {
+      params.push(source);
+      query += ` AND source = $${params.length}`;
+    }
+
+    if (breed) {
+      params.push(`%${breed}%`);
+      query += ` AND breed ILIKE $${params.length}`;
+    }
+
+    query += ` ORDER BY first_seen DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(parseInt(limit));
+    params.push(parseInt(offset));
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error(error);
