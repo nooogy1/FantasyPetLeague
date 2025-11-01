@@ -150,6 +150,41 @@ function checkAuth() {
 
 // ===== Leagues =====
 
+async function triggerScrape() {
+  const btn = document.getElementById('scrape-btn');
+  const status = document.getElementById('scrape-status');
+  
+  btn.disabled = true;
+  btn.textContent = '🔄 Scraping...';
+  status.textContent = 'Scraping pets from Houston shelters...';
+
+  try {
+    const result = await apiCall('/api/admin/scrape', {
+      method: 'POST',
+    });
+
+    if (!result) return;
+
+    status.innerHTML = `
+      ✅ <strong>Scrape Complete!</strong><br>
+      Found: ${result.pets_found} pets | New: ${result.new_pets} | Duration: ${result.duration}
+    `;
+    status.style.color = '#27ae60';
+
+    showAlert(`Successfully scraped ${result.new_pets} new pets!`, 'success');
+    
+    // Reload leagues after scrape
+    setTimeout(() => loadLeagues(), 2000);
+  } catch (error) {
+    status.textContent = `Error: ${error.message}`;
+    status.style.color = '#e74c3c';
+    showAlert('Scrape failed: ' + error.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Refresh Pet Database';
+  }
+}
+
 async function loadLeagues() {
   try {
     const leagues = await apiCall('/api/leagues');
@@ -410,6 +445,7 @@ window.app = {
   handleSignup,
   handleLogin,
   handleLogout,
+  triggerScrape,
   loadLeagues,
   createLeague,
   loadAvailablePets,
