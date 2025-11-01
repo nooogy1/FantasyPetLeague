@@ -81,4 +81,3 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Admin dashboard: http://localhost:${PORT}/admin-dashboard`);
 });
-```
