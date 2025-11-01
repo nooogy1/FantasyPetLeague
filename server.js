@@ -34,12 +34,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 
 // ============ ROUTES ============
 
-// Use modular route handlers
-app.use('/auth', authRoutes);
-app.use('/leagues', leagueRoutes);
-app.use('/draft', draftingRoutes);
-app.use('/leaderboard', leaderboardRoutes);
-app.use('/pets', petRoutes);
+// Use modular route handlers with /api prefix
+app.use('/api/auth', authRoutes);
+app.use('/api/leagues', leagueRoutes);
+app.use('/api/drafting', draftingRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/pets', petRoutes);
 app.use('/admin', adminRoutes);
 
 // Serve HTML pages
