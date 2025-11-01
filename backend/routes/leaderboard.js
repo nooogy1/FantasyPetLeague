@@ -14,13 +14,15 @@ router.get('/:leagueId', async (req, res) => {
     const { leagueId } = req.params;
     const { limit = 100 } = req.query;
 
+    // Get all users who have drafted in this league
     const result = await pool.query(
       `SELECT 
         u.id,
         u.first_name,
         u.city,
         COALESCE(lc.total_points, 0) as total_points,
-        ROW_NUMBER() OVER (ORDER BY COALESCE(lc.total_points, 0) DESC) as rank
+        COUNT(DISTINCT re.id) as pet_count,
+        ROW_NUMBER() OVER (ORDER BY COALESCE(lc.total_points, 0) DESC, u.first_name ASC) as rank
        FROM (
          SELECT DISTINCT re.user_id
          FROM roster_entries re
@@ -28,7 +30,9 @@ router.get('/:leagueId', async (req, res) => {
        ) users_in_league
        JOIN users u ON u.id = users_in_league.user_id
        LEFT JOIN leaderboard_cache lc ON lc.user_id = u.id AND lc.league_id = $1
-       ORDER BY COALESCE(lc.total_points, 0) DESC
+       LEFT JOIN roster_entries re ON re.user_id = u.id AND re.league_id = $1
+       GROUP BY u.id, u.first_name, u.city, lc.total_points
+       ORDER BY COALESCE(lc.total_points, 0) DESC, u.first_name ASC
        LIMIT $2`,
       [leagueId, parseInt(limit)]
     );
