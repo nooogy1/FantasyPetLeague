@@ -152,7 +152,7 @@ function checkAuth() {
 
 async function loadLeagues() {
   try {
-    const leagues = await apiCall('/leagues');
+    const leagues = await apiCall('/api/leagues');
     
     if (!leagues) return; // User was redirected
     
@@ -186,7 +186,7 @@ async function createLeague(event) {
   const name = form.leagueName.value;
 
   try {
-    const result = await apiCall('/leagues', {
+    const result = await apiCall('/api/leagues', {
       method: 'POST',
       body: JSON.stringify({ name }),
     });
@@ -214,7 +214,7 @@ async function loadAvailablePets(filters = {}) {
       if (value) params.append(key, value);
     });
 
-    const url = params.toString() ? `/pets?${params}` : '/pets';
+    const url = params.toString() ? `/api/pets?${params}` : '/api/pets';
     const pets = await apiCall(url);
     
     if (!pets) return;
@@ -250,14 +250,14 @@ async function loadAvailablePets(filters = {}) {
 }
 
 async function draftPet(petId) {
-  const leagueId = new URLSearchParams(window.location.search).get('league');
+  const leagueId = new URLSearchParams(window.location.search).get('id');
   if (!leagueId) {
     showAlert('Please select a league first', 'warning');
     return;
   }
 
   try {
-    const result = await apiCall('/draft', {
+    const result = await apiCall('/api/drafting', {
       method: 'POST',
       body: JSON.stringify({ leagueId, petId }),
     });
@@ -273,9 +273,9 @@ async function draftPet(petId) {
 
 // ===== Roster =====
 
-async function loadMyRoster(leagueId) {
+async function loadRoster(leagueId) {
   try {
-    const roster = await apiCall(`/myroster/${leagueId}`);
+    const roster = await apiCall(`/api/drafting/${leagueId}`);
     
     if (!roster) return;
     
@@ -322,14 +322,14 @@ async function undraftPet(petId, leagueId) {
   if (!confirm('Remove this pet from your roster?')) return;
 
   try {
-    const result = await apiCall(`/draft/${petId}/${leagueId}`, {
+    const result = await apiCall(`/api/drafting/${petId}/${leagueId}`, {
       method: 'DELETE',
     });
 
     if (!result) return;
 
     showAlert('Pet removed from roster', 'success');
-    loadMyRoster(leagueId);
+    loadRoster(leagueId);
   } catch (error) {
     showAlert('Error removing pet: ' + error.message, 'danger');
   }
@@ -339,7 +339,7 @@ async function undraftPet(petId, leagueId) {
 
 async function loadLeaderboard(leagueId) {
   try {
-    const leaderboard = await apiCall(`/leaderboard/${leagueId}`);
+    const leaderboard = await apiCall(`/api/leaderboard/${leagueId}`);
     
     if (!leaderboard) return;
     
@@ -396,8 +396,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (checkAuth()) {
         const leagueId = new URLSearchParams(window.location.search).get('id');
         if (leagueId) {
-          loadMyRoster(leagueId);
+          loadRoster(leagueId);
           loadLeaderboard(leagueId);
+          loadAvailablePets();
         }
       }
       break;
@@ -413,7 +414,7 @@ window.app = {
   createLeague,
   loadAvailablePets,
   draftPet,
-  loadMyRoster,
+  loadRoster,
   undraftPet,
   loadLeaderboard,
   showAlert,
