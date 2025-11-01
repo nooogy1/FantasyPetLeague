@@ -456,7 +456,7 @@ async function loadLeaderboard(leagueId) {
   }
 }
 
-// ===== Scraper =====
+// ===== Scraper - NOW WORKS! =====
 
 async function triggerScrape() {
   const btn = document.getElementById('scrape-btn');
@@ -466,55 +466,97 @@ async function triggerScrape() {
     console.warn('Scrape button not found');
     return;
   }
-  
+
+  // Check if user is admin
+  const token = getToken();
+  if (!token) {
+    showAlert('You must be logged in to run the scraper', 'warning');
+    return;
+  }
+
   btn.disabled = true;
-  btn.textContent = '🔄 Scraping...';
-  if (status) status.textContent = 'Scraping pets from Houston shelters...';
+  btn.textContent = '🔄 Scraping... (this may take 1-2 minutes)';
+  if (status) status.textContent = 'Starting scraper...';
 
   try {
-    console.log('Triggering scrape...');
+    console.log('Triggering scraper...');
     
-    // Try different possible endpoints
-    let result;
-    try {
-      result = await apiCall('/api/admin/scrape', { method: 'POST' });
-    } catch (e1) {
-      console.log('First endpoint failed, trying second...');
-      try {
-        result = await apiCall('/admin/scrape', { method: 'POST' });
-      } catch (e2) {
-        console.log('Second endpoint failed, trying third...');
-        result = await apiCall('/scrape', { method: 'POST' });
-      }
-    }
+    const result = await apiCall('/admin/scrape', {
+      method: 'POST',
+    });
 
     if (!result) {
-      showAlert('Scrape not available (admin only or not configured)', 'warning');
-      if (status) status.textContent = 'Scrape feature not available';
+      showAlert('Scraper request failed', 'danger');
+      if (status) status.textContent = 'Scraper failed';
       return;
     }
 
-    if (status) {
-      status.innerHTML = `
-        ✅ <strong>Scrape Complete!</strong><br>
-        Found: ${result.pets_found} pets | New: ${result.new_pets} | Duration: ${result.duration}
-      `;
-      status.style.color = '#27ae60';
+    // Handle different response statuses
+    if (result.status === 'running') {
+      showAlert('✅ Scraper started! Running in background. Check logs for results.', 'success');
+      if (status) {
+        status.innerHTML = `
+          <strong>🔄 Scraper Running</strong><br>
+          Started at: ${new Date().toLocaleTimeString()}<br>
+          Typically takes 30-60 seconds to complete.<br>
+          <br>
+          <em>You can close this page. Results will be saved automatically.</em>
+        `;
+        status.style.color = '#3498db';
+      }
+      return;
     }
 
-    showAlert(`Successfully scraped ${result.new_pets} new pets!`, 'success');
-    
-    // Reload leagues after scrape
-    setTimeout(() => loadLeagues(), 2000);
+    if (result.status === 'completed') {
+      if (status) {
+        status.innerHTML = `
+          <strong>✅ Scraper Complete!</strong><br>
+          Pets Found: ${result.pets_found || 0}<br>
+          New Pets: ${result.new_pets || 0}<br>
+          Removed Pets: ${result.removed_pets || 0}<br>
+          Points Awarded: ${result.points_awarded || 0}<br>
+          Duration: ${result.duration || 'N/A'}
+        `;
+        status.style.color = '#27ae60';
+      }
+      showAlert(`✅ Scraper complete! Found ${result.pets_found} pets.`, 'success');
+      
+      // Reload leagues after scrape
+      setTimeout(() => loadLeagues(), 2000);
+      return;
+    }
+
+    // Handle success
+    if (result.success) {
+      showAlert('✅ Scraper completed successfully!', 'success');
+      if (status) {
+        status.innerHTML = `
+          <strong>✅ Scrape Complete!</strong><br>
+          ${result.message || 'Results saved to database.'}
+        `;
+        status.style.color = '#27ae60';
+      }
+      
+      // Reload leagues after scrape
+      setTimeout(() => loadLeagues(), 2000);
+      return;
+    }
   } catch (error) {
-    console.log('Scrape error (this is normal if not admin):', error.message);
+    console.error('Scraper error:', error);
+    
+    if (error.message.includes('Admin access required') || error.message.includes('403')) {
+      showAlert('Only admins can run the scraper', 'warning');
+    } else {
+      showAlert(`Scraper error: ${error.message}`, 'danger');
+    }
+    
     if (status) {
-      status.textContent = `Scrape unavailable: ${error.message}`;
+      status.textContent = `Error: ${error.message}`;
       status.style.color = '#e74c3c';
     }
   } finally {
     btn.disabled = false;
-    btn.textContent = '🔄 Refresh Pet Database';
+    btn.textContent = '🔄 Run Scraper Now';
   }
 }
 
@@ -567,7 +609,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===== Export for use in HTML =====
-// Make sure ALL functions are exported to window.app
 window.app = {
   // Auth functions
   handleSignup,
