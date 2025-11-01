@@ -5,6 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fantasy Pet League - Dashboard</title>
   <link rel="stylesheet" href="/frontend/css/style.css">
+  <style>
+    .welcome-banner {
+      background: linear-gradient(135deg, #3498db, #9b59b6);
+      color: white;
+      padding: 40px 24px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 16px rgba(52, 152, 219, 0.3);
+    }
+    .welcome-banner h1 {
+      font-size: 32px;
+      margin: 0 0 8px 0;
+    }
+    .welcome-banner p {
+      margin: 0;
+      opacity: 0.9;
+      font-size: 16px;
+    }
+  </style>
 </head>
 <body data-page="dashboard">
   <header>
@@ -16,10 +35,10 @@
   </header>
 
   <div class="container">
-    <!-- Page Header -->
-    <div class="page-header">
-      <h1>My Leagues</h1>
-      <p>Draft pets. Earn points. Win the league.</p>
+    <!-- Welcome Banner -->
+    <div class="welcome-banner">
+      <h1>Welcome, <span id="user-name">Loading...</span>! 🎉</h1>
+      <p>Draft pets, earn points, and compete on the leaderboard</p>
     </div>
 
     <!-- Create League Card -->
@@ -44,6 +63,19 @@
       </div>
     </div>
 
+    <!-- Scrape Pets Button -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Pet Database</h2>
+      </div>
+      <div class="card-body">
+        <p id="scrape-status" style="margin-bottom: 12px; color: #7f8c8d;"></p>
+        <button class="btn btn-secondary btn-block" id="scrape-btn" onclick="app.triggerScrape()">
+          🔄 Refresh Pet Database
+        </button>
+      </div>
+    </div>
+
     <!-- Leagues List -->
     <div class="card">
       <div class="card-header">
@@ -58,5 +90,18 @@
   </div>
 
   <script src="/frontend/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = JSON.parse(localStorage.getItem('user_data'));
+      if (user && user.first_name) {
+        document.getElementById('user-name').textContent = user.first_name;
+      } else {
+        document.getElementById('user-name').textContent = 'Player';
+      }
+      
+      app.checkAuth();
+      app.loadLeagues();
+    });
+  </script>
 </body>
 </html>
