@@ -1,4 +1,4 @@
-// frontend/js/app.js - Main frontend application logic
+// frontend/js/app.js - FIXED Main frontend application logic
 
 // ===== Configuration =====
 
@@ -47,24 +47,21 @@ async function apiCall(endpoint, options = {}) {
       headers,
     });
 
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        clearAuth();
-        window.location.href = '/index.html';
-        return null;
-      }
-      
-      try {
-        const error = await response.json();
-        throw new Error(error.error || `API Error: ${response.status}`);
-      } catch (e) {
-        throw new Error(`API Error: ${response.status} - ${response.statusText}`);
-      }
+    // Check for auth errors
+    if (response.status === 401 || response.status === 403) {
+      clearAuth();
+      window.location.href = '/index.html?error=auth';
+      return null;
     }
 
-    return response.json();
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `API Error: ${response.status}`);
+    }
+
+    return await response.json();
   } catch (error) {
-    console.error('API Call Error:', error);
+    console.error('API Error:', error);
     throw error;
   }
 }
@@ -78,7 +75,11 @@ function showAlert(message, type = 'info') {
   `;
   const container = document.querySelector('.container') || document.body;
   container.insertBefore(alertDiv, container.firstChild);
-  setTimeout(() => alertDiv.remove(), 5000);
+  
+  // Auto-dismiss after 5 seconds
+  setTimeout(() => {
+    if (alertDiv.parentNode) alertDiv.remove();
+  }, 5000);
 }
 
 // ===== Authentication =====
@@ -86,49 +87,96 @@ function showAlert(message, type = 'info') {
 async function handleSignup(event) {
   event.preventDefault();
   const form = event.target;
-  const passphrase = form.passphrase.value;
-  const firstName = form.firstName.value;
-  const city = form.city.value;
+  const passphrase = form.passphrase?.value || document.getElementById('signup-passphrase').value;
+  const firstName = form.firstName?.value;
+  const city = form.city?.value;
+
+  if (!passphrase || !firstName) {
+    showAlert('Please enter a passphrase and first name', 'warning');
+    return;
+  }
 
   try {
-    const response = await apiCall('/auth/signup', {
+    console.log('Signing up with:', { firstName, city });
+    
+    const response = await apiCall('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ passphrase, firstName, city }),
     });
 
-    if (!response) return;
+    if (!response || !response.token) {
+      showAlert('Signup failed. Please try again.', 'danger');
+      return;
+    }
 
     setToken(response.token);
     setUser(response.user);
-    showAlert('Account created successfully!', 'success');
-    setTimeout(() => window.location.href = '/dashboard.html', 1500);
+    
+    showAlert(`Welcome ${firstName}! Account created successfully!`, 'success');
+    
+    // Redirect to dashboard after short delay
+    setTimeout(() => {
+      window.location.href = '/dashboard.html';
+    }, 1500);
   } catch (error) {
-    showAlert(error.message, 'danger');
+    console.error('Signup error:', error);
+    
+    if (error.message.includes('already exists')) {
+      showAlert('That name is already taken. Try a different one.', 'danger');
+    } else {
+      showAlert(`Error: ${error.message}`, 'danger');
+    }
   }
 }
 
 async function handleLogin(event) {
   event.preventDefault();
   const form = event.target;
-  const passphrase = form.passphrase.value;
+  
+  // Get passphrase from hidden input
+  const passphrase = document.getElementById('login-passphrase').value;
+  
+  // Get first name - need to derive from passphrase or ask separately
+  // For now, let's add a first name field
+  const firstNameInput = document.getElementById('login-first-name');
+  const firstName = firstNameInput?.value;
+
+  if (!passphrase || !firstName) {
+    showAlert('Please enter your name and select your passphrase', 'warning');
+    return;
+  }
 
   try {
-    const response = await apiCall('/auth/login', {
+    console.log('Logging in with:', { firstName });
+    
+    const response = await apiCall('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ passphrase }),
+      body: JSON.stringify({ passphrase, firstName }),
     });
 
-    if (!response) {
-      showAlert('Invalid passphrase. Please try again.', 'danger');
+    if (!response || !response.token) {
+      showAlert('Login failed. Please check your name and passphrase.', 'danger');
       return;
     }
 
     setToken(response.token);
     setUser(response.user);
-    showAlert('Logged in successfully!', 'success');
-    setTimeout(() => window.location.href = '/dashboard.html', 1500);
+    
+    showAlert(`Welcome back, ${firstName}!`, 'success');
+    
+    // Check if user is admin
+    if (response.user.is_admin) {
+      setTimeout(() => {
+        window.location.href = '/admin-dashboard';
+      }, 1000);
+    } else {
+      setTimeout(() => {
+        window.location.href = '/dashboard.html';
+      }, 1000);
+    }
   } catch (error) {
-    showAlert('Invalid passphrase. Please try again.', 'danger');
+    console.error('Login error:', error);
+    showAlert(`Login failed: ${error.message}`, 'danger');
   }
 }
 
@@ -141,7 +189,6 @@ function handleLogout() {
 function checkAuth() {
   const token = getToken();
   if (!token) {
-    // Redirect to login with message
     window.location.href = '/index.html?login=required';
     return false;
   }
@@ -150,46 +197,11 @@ function checkAuth() {
 
 // ===== Leagues =====
 
-async function triggerScrape() {
-  const btn = document.getElementById('scrape-btn');
-  const status = document.getElementById('scrape-status');
-  
-  btn.disabled = true;
-  btn.textContent = '🔄 Scraping...';
-  status.textContent = 'Scraping pets from Houston shelters...';
-
-  try {
-    const result = await apiCall('/api/admin/scrape', {
-      method: 'POST',
-    });
-
-    if (!result) return;
-
-    status.innerHTML = `
-      ✅ <strong>Scrape Complete!</strong><br>
-      Found: ${result.pets_found} pets | New: ${result.new_pets} | Duration: ${result.duration}
-    `;
-    status.style.color = '#27ae60';
-
-    showAlert(`Successfully scraped ${result.new_pets} new pets!`, 'success');
-    
-    // Reload leagues after scrape
-    setTimeout(() => loadLeagues(), 2000);
-  } catch (error) {
-    status.textContent = `Error: ${error.message}`;
-    status.style.color = '#e74c3c';
-    showAlert('Scrape failed: ' + error.message, 'danger');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔄 Refresh Pet Database';
-  }
-}
-
 async function loadLeagues() {
   try {
     const leagues = await apiCall('/api/leagues');
     
-    if (!leagues) return; // User was redirected
+    if (!leagues) return;
     
     const container = document.getElementById('leagues-list');
     
@@ -220,6 +232,11 @@ async function createLeague(event) {
   const form = event.target;
   const name = form.leagueName.value;
 
+  if (!name.trim()) {
+    showAlert('Please enter a league name', 'warning');
+    return;
+  }
+
   try {
     const result = await apiCall('/api/leagues', {
       method: 'POST',
@@ -236,186 +253,18 @@ async function createLeague(event) {
   }
 }
 
-async function viewLeague(leagueId) {
-  window.location.href = `/league.html?id=${leagueId}`;
-}
-
-// ===== Pets =====
-
-async function loadAvailablePets(filters = {}) {
-  try {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value);
-    });
-
-    const url = params.toString() ? `/api/pets?${params}` : '/api/pets';
-    const pets = await apiCall(url);
-    
-    if (!pets) return;
-    
-    const container = document.getElementById('pets-list');
-
-    if (pets.length === 0) {
-      container.innerHTML = '<p>No pets available.</p>';
-      return;
-    }
-
-    container.innerHTML = pets.map(pet => `
-      <div class="pet-card">
-        <div class="pet-card-header">
-          <h3>${pet.name}</h3>
-          <div class="pet-card-breed">${pet.breed}</div>
-        </div>
-        <div class="pet-card-body">
-          <dl class="pet-info">
-            <dt>Type:</dt><dd>${pet.animal_type}</dd>
-            <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd>
-            <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd>
-            <dt>Source:</dt><dd><span class="badge">${pet.source}</span></dd>
-          </dl>
-          <button class="btn btn-primary btn-block" onclick="draftPet('${pet.pet_id}')">Draft</button>
-        </div>
-      </div>
-    `).join('');
-  } catch (error) {
-    console.error('Error loading pets:', error);
-    showAlert('Error loading pets: ' + error.message, 'danger');
-  }
-}
-
-async function draftPet(petId) {
-  const leagueId = new URLSearchParams(window.location.search).get('id');
-  if (!leagueId) {
-    showAlert('Please select a league first', 'warning');
-    return;
-  }
-
-  try {
-    const result = await apiCall('/api/drafting', {
-      method: 'POST',
-      body: JSON.stringify({ leagueId, petId }),
-    });
-
-    if (!result) return;
-
-    showAlert('Pet drafted successfully!', 'success');
-    loadAvailablePets();
-  } catch (error) {
-    showAlert('Error drafting pet: ' + error.message, 'danger');
-  }
-}
-
-// ===== Roster =====
-
-async function loadRoster(leagueId) {
-  try {
-    const roster = await apiCall(`/api/drafting/${leagueId}`);
-    
-    if (!roster) return;
-    
-    const container = document.getElementById('roster-list');
-
-    if (roster.length === 0) {
-      container.innerHTML = '<p>No pets drafted yet.</p>';
-      return;
-    }
-
-    container.innerHTML = `
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Pet Name</th>
-            <th>Breed</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${roster.map(pet => `
-            <tr>
-              <td>${pet.name}</td>
-              <td>${pet.breed}</td>
-              <td>${pet.animal_type}</td>
-              <td><span class="badge ${pet.status === 'available' ? 'badge-success' : 'badge-danger'}">${pet.status}</span></td>
-              <td>
-                <button class="btn btn-danger btn-small" onclick="undraftPet('${pet.pet_id}', '${leagueId}')">Remove</button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    `;
-  } catch (error) {
-    console.error('Error loading roster:', error);
-    showAlert('Error loading roster: ' + error.message, 'danger');
-  }
-}
-
-async function undraftPet(petId, leagueId) {
-  if (!confirm('Remove this pet from your roster?')) return;
-
-  try {
-    const result = await apiCall(`/api/drafting/${petId}/${leagueId}`, {
-      method: 'DELETE',
-    });
-
-    if (!result) return;
-
-    showAlert('Pet removed from roster', 'success');
-    loadRoster(leagueId);
-  } catch (error) {
-    showAlert('Error removing pet: ' + error.message, 'danger');
-  }
-}
-
-// ===== Leaderboard =====
-
-async function loadLeaderboard(leagueId) {
-  try {
-    const leaderboard = await apiCall(`/api/leaderboard/${leagueId}`);
-    
-    if (!leaderboard) return;
-    
-    const container = document.getElementById('leaderboard-list');
-
-    if (leaderboard.length === 0) {
-      container.innerHTML = '<p>No players in this league yet.</p>';
-      return;
-    }
-
-    container.innerHTML = leaderboard.map((entry, idx) => {
-      let medal = '';
-      if (idx === 0) medal = '🥇';
-      else if (idx === 1) medal = '🥈';
-      else if (idx === 2) medal = '🥉';
-
-      return `
-        <div class="leaderboard-entry">
-          <div class="leaderboard-rank ${idx === 0 ? 'first' : idx === 1 ? 'second' : idx === 2 ? 'third' : ''}">#${entry.rank} ${medal}</div>
-          <div class="leaderboard-info">
-            <div class="leaderboard-name">${entry.first_name || 'Anonymous'}</div>
-            <div class="leaderboard-city">${entry.city || 'Location unknown'}</div>
-          </div>
-          <div class="leaderboard-points">${entry.total_points} pts</div>
-        </div>
-      `;
-    }).join('');
-  } catch (error) {
-    console.error('Error loading leaderboard:', error);
-    showAlert('Error loading leaderboard: ' + error.message, 'danger');
-  }
-}
-
 // ===== Page Initialization =====
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Check for login/logout messages
+  // Check for error messages
   const params = new URLSearchParams(window.location.search);
   
   if (params.get('login') === 'required') {
     showAlert('Please log in to continue', 'warning');
+  }
+  
+  if (params.get('error') === 'auth') {
+    showAlert('Your session expired. Please log in again.', 'warning');
   }
 
   // Initialize page-specific functionality
@@ -424,17 +273,11 @@ document.addEventListener('DOMContentLoaded', () => {
   switch (page) {
     case 'dashboard':
       if (checkAuth()) {
-        loadLeagues();
-      }
-      break;
-    case 'league':
-      if (checkAuth()) {
-        const leagueId = new URLSearchParams(window.location.search).get('id');
-        if (leagueId) {
-          loadRoster(leagueId);
-          loadLeaderboard(leagueId);
-          loadAvailablePets();
+        const user = getUser();
+        if (user) {
+          document.getElementById('user-name').textContent = user.first_name || 'Player';
         }
+        loadLeagues();
       }
       break;
   }
@@ -445,14 +288,8 @@ window.app = {
   handleSignup,
   handleLogin,
   handleLogout,
-  triggerScrape,
   loadLeagues,
   createLeague,
-  loadAvailablePets,
-  draftPet,
-  loadRoster,
-  undraftPet,
-  loadLeaderboard,
   showAlert,
   checkAuth,
 };
