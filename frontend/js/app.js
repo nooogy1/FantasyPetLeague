@@ -41,25 +41,32 @@ async function apiCall(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      handleUnauthorized();
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        clearAuth();
+        window.location.href = '/index.html';
+        return null;
+      }
+      
+      try {
+        const error = await response.json();
+        throw new Error(error.error || `API Error: ${response.status}`);
+      } catch (e) {
+        throw new Error(`API Error: ${response.status} - ${response.statusText}`);
+      }
     }
-    const error = await response.json();
-    throw new Error(error.error || 'API Error');
+
+    return response.json();
+  } catch (error) {
+    console.error('API Call Error:', error);
+    throw error;
   }
-
-  return response.json();
-}
-
-function handleUnauthorized() {
-  clearAuth();
-  window.location.href = '/index.html?login=required';
 }
 
 function showAlert(message, type = 'info') {
@@ -89,6 +96,8 @@ async function handleSignup(event) {
       body: JSON.stringify({ passphrase, firstName, city }),
     });
 
+    if (!response) return;
+
     setToken(response.token);
     setUser(response.user);
     showAlert('Account created successfully!', 'success');
@@ -109,6 +118,8 @@ async function handleLogin(event) {
       body: JSON.stringify({ passphrase }),
     });
 
+    if (!response) return;
+
     setToken(response.token);
     setUser(response.user);
     showAlert('Logged in successfully!', 'success');
@@ -127,7 +138,9 @@ function handleLogout() {
 function checkAuth() {
   const token = getToken();
   if (!token) {
+    // Redirect to login with message
     window.location.href = '/index.html?login=required';
+    return false;
   }
   return true;
 }
@@ -137,6 +150,9 @@ function checkAuth() {
 async function loadLeagues() {
   try {
     const leagues = await apiCall('/leagues');
+    
+    if (!leagues) return; // User was redirected
+    
     const container = document.getElementById('leagues-list');
     
     if (leagues.length === 0) {
@@ -156,6 +172,7 @@ async function loadLeagues() {
       </div>
     `).join('');
   } catch (error) {
+    console.error('Error loading leagues:', error);
     showAlert('Error loading leagues: ' + error.message, 'danger');
   }
 }
@@ -166,10 +183,13 @@ async function createLeague(event) {
   const name = form.leagueName.value;
 
   try {
-    await apiCall('/leagues', {
+    const result = await apiCall('/leagues', {
       method: 'POST',
       body: JSON.stringify({ name }),
     });
+
+    if (!result) return;
+
     showAlert('League created successfully!', 'success');
     form.reset();
     loadLeagues();
@@ -193,6 +213,9 @@ async function loadAvailablePets(filters = {}) {
 
     const url = params.toString() ? `/pets?${params}` : '/pets';
     const pets = await apiCall(url);
+    
+    if (!pets) return;
+    
     const container = document.getElementById('pets-list');
 
     if (pets.length === 0) {
@@ -218,6 +241,7 @@ async function loadAvailablePets(filters = {}) {
       </div>
     `).join('');
   } catch (error) {
+    console.error('Error loading pets:', error);
     showAlert('Error loading pets: ' + error.message, 'danger');
   }
 }
@@ -230,10 +254,13 @@ async function draftPet(petId) {
   }
 
   try {
-    await apiCall('/draft', {
+    const result = await apiCall('/draft', {
       method: 'POST',
       body: JSON.stringify({ leagueId, petId }),
     });
+
+    if (!result) return;
+
     showAlert('Pet drafted successfully!', 'success');
     loadAvailablePets();
   } catch (error) {
@@ -246,6 +273,9 @@ async function draftPet(petId) {
 async function loadMyRoster(leagueId) {
   try {
     const roster = await apiCall(`/myroster/${leagueId}`);
+    
+    if (!roster) return;
+    
     const container = document.getElementById('roster-list');
 
     if (roster.length === 0) {
@@ -280,6 +310,7 @@ async function loadMyRoster(leagueId) {
       </table>
     `;
   } catch (error) {
+    console.error('Error loading roster:', error);
     showAlert('Error loading roster: ' + error.message, 'danger');
   }
 }
@@ -288,9 +319,12 @@ async function undraftPet(petId, leagueId) {
   if (!confirm('Remove this pet from your roster?')) return;
 
   try {
-    await apiCall(`/draft/${petId}/${leagueId}`, {
+    const result = await apiCall(`/draft/${petId}/${leagueId}`, {
       method: 'DELETE',
     });
+
+    if (!result) return;
+
     showAlert('Pet removed from roster', 'success');
     loadMyRoster(leagueId);
   } catch (error) {
@@ -303,6 +337,9 @@ async function undraftPet(petId, leagueId) {
 async function loadLeaderboard(leagueId) {
   try {
     const leaderboard = await apiCall(`/leaderboard/${leagueId}`);
+    
+    if (!leaderboard) return;
+    
     const container = document.getElementById('leaderboard-list');
 
     if (leaderboard.length === 0) {
@@ -328,6 +365,7 @@ async function loadLeaderboard(leagueId) {
       `;
     }).join('');
   } catch (error) {
+    console.error('Error loading leaderboard:', error);
     showAlert('Error loading leaderboard: ' + error.message, 'danger');
   }
 }
@@ -347,15 +385,17 @@ document.addEventListener('DOMContentLoaded', () => {
   
   switch (page) {
     case 'dashboard':
-      checkAuth();
-      loadLeagues();
+      if (checkAuth()) {
+        loadLeagues();
+      }
       break;
     case 'league':
-      checkAuth();
-      const leagueId = new URLSearchParams(window.location.search).get('id');
-      if (leagueId) {
-        loadMyRoster(leagueId);
-        loadLeaderboard(leagueId);
+      if (checkAuth()) {
+        const leagueId = new URLSearchParams(window.location.search).get('id');
+        if (leagueId) {
+          loadMyRoster(leagueId);
+          loadLeaderboard(leagueId);
+        }
       }
       break;
   }
