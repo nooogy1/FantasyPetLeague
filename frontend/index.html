@@ -96,23 +96,345 @@
         <button class="auth-tab-btn" onclick="switchAuthTab('signup')">Sign Up</button>
       </div>
 
-      <!-- Login Form -->
+      <!-- Login Form (with dropdowns) -->
       <form id="login-form" class="auth-form active" onsubmit="app.handleLogin(event)">
-        <div class="form-group">
-          <label for="login-passphrase">Your Passphrase</label>
-          <input 
-            type="text" 
-            id="login-passphrase" 
-            name="passphrase" 
-            placeholder="e.g., openly clever pitbull" 
-            required
-          >
-          <small style="color: #7f8c8d;">Enter your 3-word passphrase</small>
+        <div class="passphrase-generator">
+          <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50;">Select Your Passphrase</p>
+          
+          <div class="passphrase-row">
+            <div>
+              <label for="login-prefix-select">Prefix (Adverb)</label>
+              <select id="login-prefix-select" onchange="updateLoginPassphraseDisplay()">
+                <option value="">Select...</option>
+                <option value="absolutely">absolutely</option>
+                <option value="actually">actually</option>
+                <option value="always">always</option>
+                <option value="barely">barely</option>
+                <option value="basically">basically</option>
+                <option value="boldly">boldly</option>
+                <option value="bravely">bravely</option>
+                <option value="briskly">briskly</option>
+                <option value="calmly">calmly</option>
+                <option value="certainly">certainly</option>
+                <option value="cheerfully">cheerfully</option>
+                <option value="clearly">clearly</option>
+                <option value="completely">completely</option>
+                <option value="confidently">confidently</option>
+                <option value="constantly">constantly</option>
+                <option value="curiously">curiously</option>
+                <option value="daily">daily</option>
+                <option value="deeply">deeply</option>
+                <option value="definitely">definitely</option>
+                <option value="easily">easily</option>
+                <option value="entirely">entirely</option>
+                <option value="evenly">evenly</option>
+                <option value="exactly">exactly</option>
+                <option value="exceptionally">exceptionally</option>
+                <option value="extra">extra</option>
+                <option value="fairly">fairly</option>
+                <option value="firmly">firmly</option>
+                <option value="fully">fully</option>
+                <option value="gently">gently</option>
+                <option value="genuinely">genuinely</option>
+                <option value="gladly">gladly</option>
+                <option value="happily">happily</option>
+                <option value="highly">highly</option>
+                <option value="honestly">honestly</option>
+                <option value="humbly">humbly</option>
+                <option value="kindly">kindly</option>
+                <option value="lightly">lightly</option>
+                <option value="loudly">loudly</option>
+                <option value="lovingly">lovingly</option>
+                <option value="mildly">mildly</option>
+                <option value="mostly">mostly</option>
+                <option value="naturally">naturally</option>
+                <option value="neatly">neatly</option>
+                <option value="nearly">nearly</option>
+                <option value="nicely">nicely</option>
+                <option value="normally">normally</option>
+                <option value="often">often</option>
+                <option value="openly">openly</option>
+                <option value="patiently">patiently</option>
+                <option value="perfectly">perfectly</option>
+                <option value="playfully">playfully</option>
+                <option value="pleasantly">pleasantly</option>
+                <option value="politely">politely</option>
+                <option value="poorly">poorly</option>
+                <option value="pretty">pretty</option>
+                <option value="proudly">proudly</option>
+                <option value="purely">purely</option>
+                <option value="quickly">quickly</option>
+                <option value="quietly">quietly</option>
+                <option value="quite">quite</option>
+                <option value="rapidly">rapidly</option>
+                <option value="rarely">rarely</option>
+                <option value="really">really</option>
+                <option value="safely">safely</option>
+                <option value="seriously">seriously</option>
+                <option value="simply">simply</option>
+                <option value="slightly">slightly</option>
+                <option value="slowly">slowly</option>
+                <option value="smoothly">smoothly</option>
+                <option value="softly">softly</option>
+                <option value="sometimes">sometimes</option>
+                <option value="somewhat">somewhat</option>
+                <option value="sorta">sorta</option>
+                <option value="steadily">steadily</option>
+                <option value="strongly">strongly</option>
+                <option value="surely">surely</option>
+                <option value="sweetly">sweetly</option>
+                <option value="tenderly">tenderly</option>
+                <option value="thoughtfully">thoughtfully</option>
+                <option value="tightly">tightly</option>
+                <option value="totally">totally</option>
+                <option value="truly">truly</option>
+                <option value="typically">typically</option>
+                <option value="unusually">unusually</option>
+                <option value="usually">usually</option>
+                <option value="vaguely">vaguely</option>
+                <option value="very">very</option>
+                <option value="warmly">warmly</option>
+                <option value="weakly">weakly</option>
+                <option value="weirdly">weirdly</option>
+                <option value="wildly">wildly</option>
+                <option value="wisely">wisely</option>
+                <option value="wistfully">wistfully</option>
+                <option value="wrongly">wrongly</option>
+                <option value="youthfully">youthfully</option>
+                <option value="zealously">zealously</option>
+                <option value="zestfully">zestfully</option>
+                <option value="zestily">zestily</option>
+              </select>
+            </div>
+            <div>
+              <label for="login-adjective-select">Adjective</label>
+              <select id="login-adjective-select" onchange="updateLoginPassphraseDisplay()">
+                <option value="">Select...</option>
+                <option value="adventurous">adventurous</option>
+                <option value="alert">alert</option>
+                <option value="bashful">bashful</option>
+                <option value="bold">bold</option>
+                <option value="boldest">boldest</option>
+                <option value="brave">brave</option>
+                <option value="bravest">bravest</option>
+                <option value="bright">bright</option>
+                <option value="bright-eyed">bright-eyed</option>
+                <option value="bouncy">bouncy</option>
+                <option value="calm">calm</option>
+                <option value="careful">careful</option>
+                <option value="caring">caring</option>
+                <option value="cheerful">cheerful</option>
+                <option value="cheerfulhearted">cheerfulhearted</option>
+                <option value="chillest">chillest</option>
+                <option value="clever">clever</option>
+                <option value="clever-minded">clever-minded</option>
+                <option value="clumsy">clumsy</option>
+                <option value="cool">cool</option>
+                <option value="cozy">cozy</option>
+                <option value="cuddly">cuddly</option>
+                <option value="curious">curious</option>
+                <option value="cute">cute</option>
+                <option value="daring">daring</option>
+                <option value="eager">eager</option>
+                <option value="easygoing">easygoing</option>
+                <option value="energetic">energetic</option>
+                <option value="faithful">faithful</option>
+                <option value="fast">fast</option>
+                <option value="fearless">fearless</option>
+                <option value="fierce">fierce</option>
+                <option value="flexible">flexible</option>
+                <option value="fluffy">fluffy</option>
+                <option value="focused">focused</option>
+                <option value="friendly">friendly</option>
+                <option value="funny">funny</option>
+                <option value="gentle">gentle</option>
+                <option value="gentlehearted">gentlehearted</option>
+                <option value="gracious">gracious</option>
+                <option value="good-natured">good-natured</option>
+                <option value="graceful">graceful</option>
+                <option value="grumpy">grumpy</option>
+                <option value="happy">happy</option>
+                <option value="hardy">hardy</option>
+                <option value="hearty">hearty</option>
+                <option value="hopeful">hopeful</option>
+                <option value="hungry">hungry</option>
+                <option value="jolly">jolly</option>
+                <option value="joyful">joyful</option>
+                <option value="kind">kind</option>
+                <option value="kindest">kindest</option>
+                <option value="lively">lively</option>
+                <option value="lighthearted">lighthearted</option>
+                <option value="loyal">loyal</option>
+                <option value="loving">loving</option>
+                <option value="mellow">mellow</option>
+                <option value="mindful">mindful</option>
+                <option value="noble">noble</option>
+                <option value="open-minded">open-minded</option>
+                <option value="patient">patient</option>
+                <option value="peaceful">peaceful</option>
+                <option value="playful">playful</option>
+                <option value="polite">polite</option>
+                <option value="polite-minded">polite-minded</option>
+                <option value="precious">precious</option>
+                <option value="proud">proud</option>
+                <option value="proudest">proudest</option>
+                <option value="pure">pure</option>
+                <option value="quick">quick</option>
+                <option value="quick-witted">quick-witted</option>
+                <option value="quiet">quiet</option>
+                <option value="relaxed">relaxed</option>
+                <option value="round">round</option>
+                <option value="serious">serious</option>
+                <option value="sharp">sharp</option>
+                <option value="shiny">shiny</option>
+                <option value="shy">shy</option>
+                <option value="silly">silly</option>
+                <option value="sleepy">sleepy</option>
+                <option value="sleepyhead">sleepyhead</option>
+                <option value="slow">slow</option>
+                <option value="small">small</option>
+                <option value="smooth">smooth</option>
+                <option value="soft">soft</option>
+                <option value="soft-spoken">soft-spoken</option>
+                <option value="speedy">speedy</option>
+                <option value="spirited">spirited</option>
+                <option value="steady">steady</option>
+                <option value="steady-minded">steady-minded</option>
+                <option value="strong">strong</option>
+                <option value="strong-willed">strong-willed</option>
+                <option value="sturdy">sturdy</option>
+                <option value="sweet">sweet</option>
+                <option value="tender">tender</option>
+                <option value="thoughtful">thoughtful</option>
+                <option value="thoughtful-minded">thoughtful-minded</option>
+                <option value="tidy">tidy</option>
+                <option value="tiny">tiny</option>
+                <option value="warm">warm</option>
+                <option value="wise">wise</option>
+                <option value="wild">wild</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="passphrase-row">
+            <div style="grid-column: 1 / -1;">
+              <label for="login-breed-select">Breed</label>
+              <select id="login-breed-select" onchange="updateLoginPassphraseDisplay()">
+                <option value="">Select...</option>
+                <option value="abyssinian">abyssinian</option>
+                <option value="akita">akita</option>
+                <option value="american">american</option>
+                <option value="angora">angora</option>
+                <option value="aussie">aussie</option>
+                <option value="balinese">balinese</option>
+                <option value="basset">basset</option>
+                <option value="beagle">beagle</option>
+                <option value="bengal">bengal</option>
+                <option value="bloodhound">bloodhound</option>
+                <option value="bobtail">bobtail</option>
+                <option value="bombay">bombay</option>
+                <option value="borzoi">borzoi</option>
+                <option value="boxer">boxer</option>
+                <option value="british">british</option>
+                <option value="bulldog">bulldog</option>
+                <option value="burmese">burmese</option>
+                <option value="calico">calico</option>
+                <option value="canine">canine</option>
+                <option value="caracal">caracal</option>
+                <option value="cheetah">cheetah</option>
+                <option value="chihuahua">chihuahua</option>
+                <option value="collie">collie</option>
+                <option value="corgi">corgi</option>
+                <option value="corgimix">corgimix</option>
+                <option value="cougar">cougar</option>
+                <option value="dachshund">dachshund</option>
+                <option value="dalmatian">dalmatian</option>
+                <option value="doberman">doberman</option>
+                <option value="exotic">exotic</option>
+                <option value="feline">feline</option>
+                <option value="goldendoodle">goldendoodle</option>
+                <option value="greyhound">greyhound</option>
+                <option value="havanese">havanese</option>
+                <option value="hound">hound</option>
+                <option value="housecat">housecat</option>
+                <option value="husky">husky</option>
+                <option value="huskymix">huskymix</option>
+                <option value="jaguar">jaguar</option>
+                <option value="kitty">kitty</option>
+                <option value="korat">korat</option>
+                <option value="labmix">labmix</option>
+                <option value="labrador">labrador</option>
+                <option value="laperm">laperm</option>
+                <option value="leopard">leopard</option>
+                <option value="lion">lion</option>
+                <option value="lynx">lynx</option>
+                <option value="mainecoon">mainecoon</option>
+                <option value="maltese">maltese</option>
+                <option value="manx">manx</option>
+                <option value="malamute">malamute</option>
+                <option value="mastiff">mastiff</option>
+                <option value="munchkin">munchkin</option>
+                <option value="norwegian">norwegian</option>
+                <option value="ocicat">ocicat</option>
+                <option value="ocelot">ocelot</option>
+                <option value="oriental">oriental</option>
+                <option value="panther">panther</option>
+                <option value="persian">persian</option>
+                <option value="pixiebob">pixiebob</option>
+                <option value="pitbull">pitbull</option>
+                <option value="pointer">pointer</option>
+                <option value="pomeranian">pomeranian</option>
+                <option value="poodle">poodle</option>
+                <option value="pup">pup</option>
+                <option value="ragdoll">ragdoll</option>
+                <option value="retriever">retriever</option>
+                <option value="retrievermix">retrievermix</option>
+                <option value="ridgeback">ridgeback</option>
+                <option value="rottweiler">rottweiler</option>
+                <option value="russian">russian</option>
+                <option value="samoyed">samoyed</option>
+                <option value="savannah">savannah</option>
+                <option value="schnauzer">schnauzer</option>
+                <option value="scottish">scottish</option>
+                <option value="serval">serval</option>
+                <option value="setter">setter</option>
+                <option value="sheepdog">sheepdog</option>
+                <option value="shepherd">shepherd</option>
+                <option value="shepherdmix">shepherdmix</option>
+                <option value="shiba">shiba</option>
+                <option value="siamese">siamese</option>
+                <option value="singapura">singapura</option>
+                <option value="snowshoe">snowshoe</option>
+                <option value="somali">somali</option>
+                <option value="spaniel">spaniel</option>
+                <option value="sphynx">sphynx</option>
+                <option value="straydog">straydog</option>
+                <option value="streetcat">streetcat</option>
+                <option value="tabby">tabby</option>
+                <option value="tabbycat">tabbycat</option>
+                <option value="terrier">terrier</option>
+                <option value="tiger">tiger</option>
+                <option value="tonkinese">tonkinese</option>
+                <option value="toyger">toyger</option>
+                <option value="turkish">turkish</option>
+                <option value="tuxedo">tuxedo</option>
+                <option value="vizsla">vizsla</option>
+                <option value="whippet">whippet</option>
+                <option value="wildcat">wildcat</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="passphrase-display empty" id="login-passphrase-display">
+            select words above
+          </div>
         </div>
+
+        <input type="hidden" id="login-passphrase" name="passphrase" value="" required>
         <button type="submit" class="btn btn-primary btn-block">Login</button>
       </form>
 
-      <!-- Signup Form -->
+      <!-- Signup Form (with dropdowns) -->
       <form id="signup-form" class="auth-form" onsubmit="app.handleSignup(event)">
         <div class="passphrase-generator">
           <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50;">Create Your Passphrase</p>
@@ -486,7 +808,6 @@
   <script src="/frontend/js/app.js"></script>
   <script>
     function switchAuthTab(tab) {
-      // Hide all forms
       document.querySelectorAll('.auth-form').forEach(form => {
         form.classList.remove('active');
       });
@@ -494,13 +815,31 @@
         btn.classList.remove('active');
       });
 
-      // Show selected form
       if (tab === 'login') {
         document.getElementById('login-form').classList.add('active');
         document.querySelectorAll('.auth-tab-btn')[0].classList.add('active');
       } else {
         document.getElementById('signup-form').classList.add('active');
         document.querySelectorAll('.auth-tab-btn')[1].classList.add('active');
+      }
+    }
+
+    function updateLoginPassphraseDisplay() {
+      const prefix = document.getElementById('login-prefix-select').value;
+      const adjective = document.getElementById('login-adjective-select').value;
+      const breed = document.getElementById('login-breed-select').value;
+      const display = document.getElementById('login-passphrase-display');
+      const hiddenInput = document.getElementById('login-passphrase');
+
+      if (prefix && adjective && breed) {
+        const passphrase = `${prefix} ${adjective} ${breed}`;
+        display.textContent = passphrase;
+        display.classList.remove('empty');
+        hiddenInput.value = passphrase;
+      } else {
+        display.textContent = 'select words above';
+        display.classList.add('empty');
+        hiddenInput.value = '';
       }
     }
 
@@ -537,7 +876,6 @@
       }
     }
 
-    // Check if already logged in
     document.addEventListener('DOMContentLoaded', () => {
       const token = localStorage.getItem('auth_token');
       if (token) {
