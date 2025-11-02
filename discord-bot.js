@@ -17,7 +17,7 @@ const ADMIN_ROLE_ID = process.env.ADMIN_ROLE_ID;
 
 // ============ EVENTS ============
 
-bot.on('ready', () => {
+bot.on('clientReady', () => {
   console.log(`✓ Discord bot logged in as ${bot.user.tag}`);
   bot.user.setActivity('pets get adopted 🐾', { type: 'WATCHING' });
 });
@@ -100,7 +100,7 @@ async function handleAddPet(interaction) {
   // Draft pet
   try {
     await pool.query(
-      'INSERT INTO roster_entries (user_id, league_id, pet_id) VALUES ($1, $2, $3)',
+      'INSERT INTO roster_entries (user_id, league_id, pet_id, drafted_at) VALUES ($1, $2, $3, NOW())',
       [dbUserId, leagueId, pet.id]
     );
 
