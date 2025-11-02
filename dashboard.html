@@ -14,6 +14,12 @@
       margin-bottom: 30px;
       box-shadow: 0 4px 16px rgba(52, 152, 219, 0.3);
     }
+    .welcome-banner-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+    }
     .welcome-banner h1 {
       font-size: 32px;
       margin: 0 0 8px 0;
@@ -22,6 +28,10 @@
       margin: 0;
       opacity: 0.9;
       font-size: 16px;
+    }
+    .welcome-banner .btn {
+      height: fit-content;
+      white-space: nowrap;
     }
     .league-entry {
       display: flex;
@@ -126,6 +136,57 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    /* Edit Name Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal.active {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background-color: white;
+      padding: 32px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #999;
+    }
+
+    .modal-close:hover {
+      color: #000;
+    }
   </style>
 </head>
 <body data-page="dashboard">
@@ -137,10 +198,15 @@
   </header>
 
   <div class="container">
-    <!-- Welcome Banner -->
+    <!-- Welcome Banner with Edit Name -->
     <div class="welcome-banner">
-      <h1>Welcome, <span id="user-name">Loading...</span>! 🎉</h1>
-      <p>Join leagues, draft pets, and compete on leaderboards</p>
+      <div class="welcome-banner-content">
+        <div>
+          <h1>Welcome, <span id="user-name">Loading...</span>! 🎉</h1>
+          <p>Join leagues, draft pets, and compete on leaderboards</p>
+        </div>
+        <button class="btn btn-outline" style="color: white; border-color: white;" onclick="showEditNameModal()">Edit Name</button>
+      </div>
     </div>
 
     <!-- Your Leagues -->
@@ -219,6 +285,31 @@
     </div>
   </div>
 
+  <!-- Edit Name Modal -->
+  <div id="edit-name-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Your Name</h2>
+        <button class="modal-close" onclick="closeEditNameModal()">×</button>
+      </div>
+      <form onsubmit="handleNameChange(event)">
+        <div class="form-group">
+          <label for="edit-name-input">Display Name</label>
+          <input 
+            type="text" 
+            id="edit-name-input" 
+            required
+            placeholder="Enter your new name"
+          >
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button type="button" class="btn btn-outline" onclick="closeEditNameModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Name</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Load app.js FIRST -->
   <script src="/frontend/js/app.js"></script>
   
@@ -289,6 +380,55 @@
       window.URL.revokeObjectURL(url);
 
       logDebug('success', 'Debug log downloaded');
+    }
+
+    // ===== Edit Name Modal =====
+
+    function showEditNameModal() {
+      const user = JSON.parse(localStorage.getItem('user_data') || '{}');
+      document.getElementById('edit-name-input').value = user.first_name || '';
+      document.getElementById('edit-name-modal').classList.add('active');
+    }
+
+    function closeEditNameModal() {
+      document.getElementById('edit-name-modal').classList.remove('active');
+    }
+
+    async function handleNameChange(event) {
+      event.preventDefault();
+      const newName = document.getElementById('edit-name-input').value.trim();
+
+      if (!newName) {
+        window.showAlert('Please enter a name', 'warning');
+        return;
+      }
+
+      try {
+        logDebug('info', `Updating name to: ${newName}`);
+
+        // Call API to update name
+        const response = await window.apiCall('/api/auth/update-name', {
+          method: 'POST',
+          body: JSON.stringify({ firstName: newName })
+        });
+
+        if (response) {
+          // Update local storage
+          const user = JSON.parse(localStorage.getItem('user_data') || '{}');
+          user.first_name = newName;
+          localStorage.setItem('user_data', JSON.stringify(user));
+
+          // Update display
+          document.getElementById('user-name').textContent = newName;
+
+          logDebug('success', `Name updated to: ${newName}`);
+          window.showAlert('Name updated successfully!', 'success');
+          closeEditNameModal();
+        }
+      } catch (error) {
+        logDebug('error', `Failed to update name: ${error.message}`);
+        window.showAlert(`Error: ${error.message}`, 'danger');
+      }
     }
 
     // ===== Page Initialization (FIXED) =====
