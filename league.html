@@ -174,7 +174,7 @@
     <div class="logo">🐾 Fantasy Pet League</div>
     <nav>
       <a href="/dashboard.html">Dashboard</a>
-      <a href="#" onclick="app.handleLogout(); return false;">Logout</a>
+      <a href="#" onclick="handleLogoutLeague(); return false;">Logout</a>
     </nav>
   </header>
 
@@ -234,49 +234,191 @@
 
   <script src="/frontend/js/app.js"></script>
   <script>
-    let currentLeagueId = null;
-    let leagueCurrentPage = 1;
+    // ===== League Page State =====
+    let leaguePageState = {
+      currentLeagueId: null,
+      allPets: [],
+      currentPage: 1,
+      petsPerPage: 12
+    };
 
+    // ===== Pagination & Rendering Functions =====
+    function renderLeaguePets(pets) {
+      console.log('[LEAGUE-RENDER] Rendering pets, page:', leaguePageState.currentPage);
+      
+      const container = document.getElementById('pets-list');
+      if (!container) return;
+
+      if (!pets || pets.length === 0) {
+        container.innerHTML = '<p>No available pets to draft in this league.</p>';
+        return;
+      }
+
+      const totalPages = Math.ceil(pets.length / leaguePageState.petsPerPage);
+      const start = (leaguePageState.currentPage - 1) * leaguePageState.petsPerPage;
+      const end = start + leaguePageState.petsPerPage;
+      const petsToShow = pets.slice(start, end);
+
+      // Build pet cards
+      const petsHtml = petsToShow.map(pet => {
+        const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
+        return `
+          <div class="pet-card">
+            <div class="pet-card-header">
+              <div>
+                <h3>${pet.name}</h3>
+                <p class="pet-card-breed">${pet.breed}</p>
+              </div>
+            </div>
+            <div class="pet-card-stats">
+              <span class="pet-stat"><strong>Type:</strong> ${pet.animal_type}</span>
+              <span class="pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+              <span class="pet-stat"><strong>Age:</strong> ${pet.age || 'N/A'}</span>
+              <span class="pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
+            </div>
+            <button class="btn btn-primary" style="margin-top: 12px; width: 100%;" onclick="draftPetInLeague('${pet.pet_id}')">Draft Pet</button>
+          </div>
+        `;
+      }).join('');
+
+      // Build pagination
+      let paginationHtml = '';
+      if (totalPages > 1) {
+        paginationHtml = '<div style="display: flex; justify-content: center; gap: 8px; margin-top: 16px; flex-wrap: wrap;">';
+        
+        if (leaguePageState.currentPage > 1) {
+          paginationHtml += `<button class="btn btn-secondary btn-small" onclick="goToLeaguePage(${leaguePageState.currentPage - 1})">← Previous</button>`;
+        }
+
+        const startPage = Math.max(1, leaguePageState.currentPage - 2);
+        const endPage = Math.min(totalPages, leaguePageState.currentPage + 2);
+
+        if (startPage > 1) {
+          paginationHtml += `<button class="btn btn-outline btn-small" onclick="goToLeaguePage(1)">1</button>`;
+          if (startPage > 2) paginationHtml += '<span style="padding: 8px;">...</span>';
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+          const isActive = i === leaguePageState.currentPage;
+          paginationHtml += `<button class="btn ${isActive ? 'btn-primary' : 'btn-outline'} btn-small" onclick="goToLeaguePage(${i})">${i}</button>`;
+        }
+
+        if (endPage < totalPages) {
+          if (endPage < totalPages - 1) paginationHtml += '<span style="padding: 8px;">...</span>';
+          paginationHtml += `<button class="btn btn-outline btn-small" onclick="goToLeaguePage(${totalPages})">${totalPages}</button>`;
+        }
+
+        if (leaguePageState.currentPage < totalPages) {
+          paginationHtml += `<button class="btn btn-secondary btn-small" onclick="goToLeaguePage(${leaguePageState.currentPage + 1})">Next →</button>`;
+        }
+
+        paginationHtml += `<span style="padding: 8px; font-size: 14px;">Page ${leaguePageState.currentPage} of ${totalPages}</span>`;
+        paginationHtml += '</div>';
+      }
+
+      container.innerHTML = petsHtml + paginationHtml;
+      console.log('[LEAGUE-RENDER] Rendered', petsToShow.length, 'pets with pagination');
+    }
+
+    // ===== Navigation Functions =====
+    function goToLeaguePage(pageNum) {
+      console.log('[LEAGUE-PAGE] Going to page:', pageNum);
+      leaguePageState.currentPage = pageNum;
+      renderLeaguePets(leaguePageState.allPets);
+      document.getElementById('pets-list').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function calculateDaysSince(date) {
+      if (!date) return 0;
+      const now = new Date();
+      const then = new Date(date);
+      const diff = now - then;
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      return Math.max(0, days);
+    }
+
+    // ===== Draft Function =====
+    async function draftPetInLeague(petId) {
+      console.log('[LEAGUE-DRAFT] Drafting pet:', petId);
+      
+      try {
+        await app.draftPet(petId, leaguePageState.currentLeagueId);
+        
+        // Refresh all data after draft
+        setTimeout(() => {
+          console.log('[LEAGUE-DRAFT] Refreshing data after draft');
+          loadLeagueData();
+        }, 1000);
+      } catch (error) {
+        console.error('[LEAGUE-DRAFT] Error:', error);
+      }
+    }
+
+    // ===== Load League Data =====
+    async function loadLeagueData() {
+      console.log('[LEAGUE-LOAD] Loading league data');
+      
+      // Load leaderboard
+      app.loadLeaderboard(leaguePageState.currentLeagueId);
+      
+      // Load rosters
+      app.loadLeagueRosters(leaguePageState.currentLeagueId);
+      
+      // Load available pets
+      try {
+        const allPets = await fetch(`/api/pets?limit=1000`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        }).then(r => r.json());
+
+        const leaguePets = await fetch(`/api/drafting/league/${leaguePageState.currentLeagueId}/pets`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          }
+        }).then(r => r.json());
+
+        if (allPets && leaguePets) {
+          const draftedPetIds = new Set(leaguePets.map(p => p.pet_id));
+          const availablePets = allPets.filter(p => !draftedPetIds.has(p.pet_id));
+          
+          leaguePageState.allPets = availablePets;
+          leaguePageState.currentPage = 1;
+          renderLeaguePets(availablePets);
+          
+          console.log('[LEAGUE-LOAD] Loaded', availablePets.length, 'available pets');
+        }
+      } catch (error) {
+        console.error('[LEAGUE-LOAD] Error loading pets:', error);
+      }
+    }
+
+    // ===== Logout Handler =====
+    function handleLogoutLeague() {
+      app.handleLogout();
+    }
+
+    // ===== Initialize Page =====
     document.addEventListener('DOMContentLoaded', () => {
-      currentLeagueId = new URLSearchParams(window.location.search).get('id');
-      if (!currentLeagueId) {
+      console.log('[LEAGUE] Initializing league page');
+      
+      // Get league ID from URL
+      const params = new URLSearchParams(window.location.search);
+      const leagueId = params.get('id');
+
+      if (!leagueId) {
+        console.error('[LEAGUE] No league ID in URL');
+        alert('❌ No league selected');
         window.location.href = '/dashboard.html';
         return;
       }
 
-      console.log('[LEAGUE] Loading league view:', currentLeagueId);
-      
-      app.loadLeaderboard(currentLeagueId);
-      app.loadLeagueRosters(currentLeagueId);
-      app.loadLeagueAvailablePets(currentLeagueId);
+      leaguePageState.currentLeagueId = leagueId;
+      console.log('[LEAGUE] League ID:', leagueId);
+
+      // Load all data
+      loadLeagueData();
     });
-
-    const originalDraftPet = window.app.draftPet;
-    window.draftPetLeague = async function(petId, leagueId) {
-      const savedPage = leagueCurrentPage;
-      console.log('[LEAGUE-DRAFT] Saving page:', savedPage);
-      
-      try {
-        await originalDraftPet(petId, leagueId);
-        
-        setTimeout(() => {
-          console.log('[LEAGUE-DRAFT] Restoring page:', savedPage);
-          app.loadLeagueRosters(leagueId);
-          leagueCurrentPage = savedPage;
-          app.loadLeagueAvailablePets(leagueId);
-        }, 800);
-      } catch (error) {
-        console.error('[LEAGUE-DRAFT] Error:', error);
-      }
-    };
-
-    window.goToLeaguePagePreserve = function(pageNum) {
-      console.log('[LEAGUE-PAGE] Navigating to page:', pageNum);
-      leagueCurrentPage = pageNum;
-      if (window.goToLeaguePagePreserve.original) {
-        window.goToLeaguePagePreserve.original(pageNum);
-      }
-    };
   </script>
 </body>
 </html>
