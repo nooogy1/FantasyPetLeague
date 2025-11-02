@@ -53,7 +53,8 @@ window.loadUserLeagues = async function() {
 window.loadAvailableLeagues = async function() {
   try {
     console.log('[AVAILABLE_LEAGUES] Loading...');
-    const allLeagues = await window.apiCall('/api/leagues');
+    // FIX: Call /api/leagues/available/list instead of /api/leagues
+    const allLeagues = await window.apiCall('/api/leagues/available/list');
     
     if (!allLeagues) return;
     
