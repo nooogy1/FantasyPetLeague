@@ -235,6 +235,7 @@
   <script src="/frontend/js/app.js"></script>
   <script>
     let currentLeagueId = null;
+    let leagueCurrentPage = 1;
 
     document.addEventListener('DOMContentLoaded', () => {
       currentLeagueId = new URLSearchParams(window.location.search).get('id');
@@ -249,6 +250,33 @@
       app.loadLeagueRosters(currentLeagueId);
       app.loadLeagueAvailablePets(currentLeagueId);
     });
+
+    const originalDraftPet = window.app.draftPet;
+    window.draftPetLeague = async function(petId, leagueId) {
+      const savedPage = leagueCurrentPage;
+      console.log('[LEAGUE-DRAFT] Saving page:', savedPage);
+      
+      try {
+        await originalDraftPet(petId, leagueId);
+        
+        setTimeout(() => {
+          console.log('[LEAGUE-DRAFT] Restoring page:', savedPage);
+          app.loadLeagueRosters(leagueId);
+          leagueCurrentPage = savedPage;
+          app.loadLeagueAvailablePets(leagueId);
+        }, 800);
+      } catch (error) {
+        console.error('[LEAGUE-DRAFT] Error:', error);
+      }
+    };
+
+    window.goToLeaguePagePreserve = function(pageNum) {
+      console.log('[LEAGUE-PAGE] Navigating to page:', pageNum);
+      leagueCurrentPage = pageNum;
+      if (window.goToLeaguePagePreserve.original) {
+        window.goToLeaguePagePreserve.original(pageNum);
+      }
+    };
   </script>
 </body>
 </html>

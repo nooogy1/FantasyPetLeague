@@ -533,7 +533,8 @@ function goToPetsPage(pageNum) {
   console.log('[PETS] Navigated to page', petsCurrentPage);
 }
 
-// LOAD LEAGUE AVAILABLE PETS (WITH PHOTOS)
+// ===== LEAGUE AVAILABLE PETS - FIXED FOR PAGINATION & PHOTOS =====
+
 async function loadLeagueAvailablePets(leagueId) {
   try {
     const allPets = await apiCall('/api/pets?limit=1000');
@@ -552,12 +553,12 @@ async function loadLeagueAvailablePets(leagueId) {
       return;
     }
 
-    // Store all available pets for pagination
     leagueAvailablePetsData = availablePets;
-    leagueAvailablePetsPage = 1;
-
-    // Calculate pagination
-    const start = (leagueAvailablePetsPage - 1) * LEAGUE_PETS_PER_PAGE;
+    
+    // FIX #2: Check for leagueCurrentPage from league.html
+    const pageToUse = typeof leagueCurrentPage !== 'undefined' ? leagueCurrentPage : leagueAvailablePetsPage;
+    
+    const start = (pageToUse - 1) * LEAGUE_PETS_PER_PAGE;
     const end = start + LEAGUE_PETS_PER_PAGE;
     const petsToDisplay = availablePets.slice(start, end);
 
@@ -584,20 +585,20 @@ async function loadLeagueAvailablePets(leagueId) {
               <span class="pet-grid-detail"><strong>Source:</strong> ${source}</span>
               <span class="pet-grid-detail"><strong>In Shelter:</strong> ${daysInShelter}d</span>
             </div>
-            <button class="btn btn-primary btn-block pet-grid-button" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
+            <button class="btn btn-primary btn-block pet-grid-button" onclick="draftPetLeague('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
           </div>
         </div>
       `;
     }).join('');
 
-    const pagination = renderLeagueAvailablePetsPagination(availablePets.length);
+    const pagination = renderLeagueAvailablePetsPagination(availablePets.length, pageToUse);
 
     container.innerHTML = `
       <div class="grid grid-3">${petsHtml}</div>
       ${pagination}
     `;
 
-    console.log('[LEAGUE_PETS] Rendered page', leagueAvailablePetsPage, 'with', petsToDisplay.length, 'pets (total:', availablePets.length, ')');
+    console.log('[LEAGUE_PETS] Rendered page', pageToUse, 'with', petsToDisplay.length, 'pets');
   } catch (error) {
     console.error('[LEAGUE_PETS] Error:', error);
     const container = document.getElementById('pets-list');
@@ -608,60 +609,62 @@ async function loadLeagueAvailablePets(leagueId) {
   }
 }
 
-// RENDER PAGINATION - League pets
-function renderLeagueAvailablePetsPagination(totalPets) {
+// FIX: RENDER PAGINATION - League pets (accepts currentPage parameter)
+function renderLeagueAvailablePetsPagination(totalPets, currentPage) {
   const totalPages = Math.ceil(totalPets / LEAGUE_PETS_PER_PAGE);
   
   if (totalPages <= 1) return '';
   
   let html = '<div style="display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap;">';
   
-  // Previous button
-  if (leagueAvailablePetsPage > 1) {
-    html += `<button class="btn btn-secondary btn-small" onclick="app.goToLeaguePetsPage(${leagueAvailablePetsPage - 1})">← Previous</button>`;
+  if (currentPage > 1) {
+    html += `<button class="btn btn-secondary btn-small" onclick="goToLeaguePagePreserve(${currentPage - 1})">← Previous</button>`;
   }
   
-  // Page numbers
-  const startPage = Math.max(1, leagueAvailablePetsPage - 2);
-  const endPage = Math.min(totalPages, leagueAvailablePetsPage + 2);
+  const startPage = Math.max(1, currentPage - 2);
+  const endPage = Math.min(totalPages, currentPage + 2);
   
   if (startPage > 1) {
-    html += `<button class="btn ${leagueAvailablePetsPage === 1 ? 'btn-primary' : 'btn-outline'} btn-small" onclick="app.goToLeaguePetsPage(1)">1</button>`;
+    html += `<button class="btn ${currentPage === 1 ? 'btn-primary' : 'btn-outline'} btn-small" onclick="goToLeaguePagePreserve(1)">1</button>`;
     if (startPage > 2) html += '<span style="padding: 8px;">...</span>';
   }
   
   for (let i = startPage; i <= endPage; i++) {
-    html += `<button class="btn ${leagueAvailablePetsPage === i ? 'btn-primary' : 'btn-outline'} btn-small" onclick="app.goToLeaguePetsPage(${i})">${i}</button>`;
+    html += `<button class="btn ${currentPage === i ? 'btn-primary' : 'btn-outline'} btn-small" onclick="goToLeaguePagePreserve(${i})">${i}</button>`;
   }
   
   if (endPage < totalPages) {
     if (endPage < totalPages - 1) html += '<span style="padding: 8px;">...</span>';
-    html += `<button class="btn ${leagueAvailablePetsPage === totalPages ? 'btn-primary' : 'btn-outline'} btn-small" onclick="app.goToLeaguePetsPage(${totalPages})">${totalPages}</button>`;
+    html += `<button class="btn ${currentPage === totalPages ? 'btn-primary' : 'btn-outline'} btn-small" onclick="goToLeaguePagePreserve(${totalPages})">${totalPages}</button>`;
   }
   
-  // Next button
-  if (leagueAvailablePetsPage < totalPages) {
-    html += `<button class="btn btn-secondary btn-small" onclick="app.goToLeaguePetsPage(${leagueAvailablePetsPage + 1})">Next →</button>`;
+  if (currentPage < totalPages) {
+    html += `<button class="btn btn-secondary btn-small" onclick="goToLeaguePagePreserve(${currentPage + 1})">Next →</button>`;
   }
   
-  html += `<span style="padding: 8px; font-size: 14px;">Page ${leagueAvailablePetsPage} of ${totalPages}</span>`;
+  html += `<span style="padding: 8px; font-size: 14px;">Page ${currentPage} of ${totalPages}</span>`;
   html += '</div>';
   
   return html;
 }
 
-// GO TO PAGE - League pets
-function goToLeaguePetsPage(pageNum) {
+// FIX: GO TO PAGE - League pets (with page state support)
+function goToLeaguePagePreserve(pageNum) {
   const totalPages = Math.ceil(leagueAvailablePetsData.length / LEAGUE_PETS_PER_PAGE);
   
   if (pageNum < 1 || pageNum > totalPages) return;
   
-  leagueAvailablePetsPage = pageNum;
+  if (typeof leagueCurrentPage !== 'undefined') {
+    leagueCurrentPage = pageNum;
+    console.log('[LEAGUE-PAGE] Updated leagueCurrentPage to:', pageNum);
+  } else {
+    leagueAvailablePetsPage = pageNum;
+  }
   
   const container = document.getElementById('pets-list');
   if (!container) return;
   
-  const start = (leagueAvailablePetsPage - 1) * LEAGUE_PETS_PER_PAGE;
+  const start = (pageNum - 1) * LEAGUE_PETS_PER_PAGE;
   const end = start + LEAGUE_PETS_PER_PAGE;
   const petsToDisplay = leagueAvailablePetsData.slice(start, end);
   
@@ -688,13 +691,13 @@ function goToLeaguePetsPage(pageNum) {
             <span class="pet-grid-detail"><strong>Source:</strong> ${source}</span>
             <span class="pet-grid-detail"><strong>In Shelter:</strong> ${daysInShelter}d</span>
           </div>
-          <button class="btn btn-primary btn-block pet-grid-button" onclick="app.draftPet('${pet.pet_id}', currentLeagueId)">Draft Pet</button>
+          <button class="btn btn-primary btn-block pet-grid-button" onclick="draftPetLeague('${pet.pet_id}', currentLeagueId)">Draft Pet</button>
         </div>
       </div>
     `;
   }).join('');
   
-  const pagination = renderLeagueAvailablePetsPagination(leagueAvailablePetsData.length);
+  const pagination = renderLeagueAvailablePetsPagination(leagueAvailablePetsData.length, pageNum);
   
   container.innerHTML = `
     <div class="grid grid-3">${petsHtml}</div>
@@ -702,7 +705,7 @@ function goToLeaguePetsPage(pageNum) {
   `;
   
   document.querySelector('.card:has(#pets-list)')?.scrollIntoView({ behavior: 'smooth' });
-  console.log('[LEAGUE_PETS] Navigated to page', leagueAvailablePetsPage);
+  console.log('[LEAGUE_PETS] Navigated to page', pageNum);
 }
 
 // DRAFT PET
@@ -746,7 +749,7 @@ async function draftPet(petId, leagueId) {
   }
 }
 
-// LOAD LEAGUE ROSTERS (WITH PHOTOS - SIDE BY SIDE)
+// FIX #1: LOAD LEAGUE ROSTERS WITH PHOTOS
 async function loadLeagueRosters(leagueId) {
   try {
     console.log('[ROSTERS] Loading rosters for league:', leagueId);
@@ -766,18 +769,16 @@ async function loadLeagueRosters(leagueId) {
       return;
     }
 
-    // Get current user ID
     const currentUser = getUser();
     const currentUserId = currentUser?.id;
 
-    // Sort rosters: current user first, then alphabetically
     const sortedRosters = rosters.sort((a, b) => {
       if (a.user_id === currentUserId) return -1;
       if (b.user_id === currentUserId) return 1;
       return (a.first_name || '').localeCompare(b.first_name || '');
     });
 
-    // Build roster display with player names and their pets with photos
+    // FIX #1: Build roster with PHOTOS
     const rosterHtml = sortedRosters.map(roster => {
       const playerName = roster.first_name || 'Anonymous';
       const pets = roster.pets || [];
@@ -802,7 +803,7 @@ async function loadLeagueRosters(leagueId) {
             <div class="roster-pet-photo">
               ${pet.photo_url 
                 ? `<img src="${pet.photo_url}" alt="${pet.name}" onerror="this.style.display='none'">`
-                : '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">📷</div>'
+                : '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #ecf0f1; color: #95a5a6; font-size: 32px;">📷</div>'
               }
             </div>
             <div class="roster-pet-info">
@@ -981,7 +982,7 @@ window.app = {
   loadLeagueAvailablePets,
   draftPet,
   goToPetsPage,
-  goToLeaguePetsPage,
+  goToLeaguePetsPage: () => {}, // Stub for compatibility
   
   loadLeagueRosters,
   
