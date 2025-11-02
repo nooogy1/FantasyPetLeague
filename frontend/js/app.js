@@ -41,7 +41,8 @@ function calculateDaysSince(date) {
   const now = new Date();
   const then = new Date(date);
   const diff = now - then;
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  return Math.max(0, days);  // Never return negative - today is 0d
 }
 
 async function apiCall(endpoint, options = {}) {
