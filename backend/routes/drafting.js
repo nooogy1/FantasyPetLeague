@@ -159,6 +159,7 @@ router.get('/league/:leagueId/rosters', async (req, res) => {
             'source', p.source,
             'brought_to_shelter', p.brought_to_shelter,
             'drafted_date', re.drafted_at
+            'photo_url', p.photo_url,
           )
         ) FILTER (WHERE p.id IS NOT NULL) as pets
        FROM league_members lm
