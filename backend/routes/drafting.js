@@ -83,6 +83,7 @@ router.get('/:leagueId', authenticateToken, async (req, res) => {
         p.age,
         p.source,
         p.status,
+        p.brought_to_shelter,
         re.drafted_at
        FROM roster_entries re
        JOIN pets p ON p.id = re.pet_id
@@ -154,6 +155,9 @@ router.get('/league/:leagueId/rosters', async (req, res) => {
             'age', p.age,
             'animal_type', p.animal_type,
             'breed', p.breed,
+            'gender', p.gender,
+            'source', p.source,
+            'brought_to_shelter', p.brought_to_shelter,
             'drafted_date', re.drafted_at
           )
         ) FILTER (WHERE p.id IS NOT NULL) as pets
