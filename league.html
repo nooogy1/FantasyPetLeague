@@ -11,15 +11,53 @@
       grid-template-columns: 1fr 1fr;
       gap: 24px;
     }
-    .league-left {
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
+
+    .roster-player {
+      background: #f9f9f9;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      border-left: 4px solid #3498db;
     }
-    .league-right {
-      display: flex;
-      flex-direction: column;
+
+    .roster-player-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 12px;
     }
+
+    .roster-pet {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      border: 1px solid #ecf0f1;
+    }
+
+    .roster-pet-name {
+      font-weight: 600;
+      color: #3498db;
+      margin-bottom: 8px;
+    }
+
+    .roster-pet-stats {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+    }
+
+    .roster-pet-stat {
+      display: inline-block;
+      margin-right: 12px;
+      padding-right: 12px;
+      border-right: 1px solid #ecf0f1;
+    }
+
+    .roster-pet-stat:last-child {
+      border-right: none;
+    }
+
     .leaderboard-entry {
       display: flex;
       justify-content: space-between;
@@ -29,76 +67,101 @@
       border-radius: 4px;
       margin-bottom: 8px;
     }
+
     .leaderboard-rank {
       font-weight: 600;
       min-width: 40px;
     }
+
     .leaderboard-info {
       flex: 1;
       margin: 0 12px;
     }
+
     .leaderboard-name {
       font-weight: 600;
     }
+
     .leaderboard-city {
       font-size: 12px;
       color: #7f8c8d;
     }
+
     .leaderboard-points {
       font-weight: 600;
       color: #9b59b6;
     }
-    .roster-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    .roster-table thead {
-      background: #f0f0f0;
-      font-weight: 600;
-    }
-    .roster-table th, .roster-table td {
-      padding: 8px;
-      text-align: left;
-      border-bottom: 1px solid #ddd;
-    }
-    .roster-player {
-      font-weight: 600;
-      background: #f9f9f9;
-    }
+
     .pet-card {
       border: 1px solid #ddd;
       border-radius: 8px;
       padding: 12px;
       margin-bottom: 12px;
+      transition: all 0.2s ease;
     }
+
+    .pet-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border-color: #3498db;
+    }
+
     .pet-card-header {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       margin-bottom: 8px;
     }
+
     .pet-card-header h3 {
       margin: 0;
       font-size: 16px;
+      color: #2c3e50;
     }
+
     .pet-card-breed {
       font-size: 12px;
       color: #7f8c8d;
       margin-bottom: 8px;
     }
-    .pet-info {
-      font-size: 12px;
+
+    .pet-card-stats {
+      font-size: 13px;
       line-height: 1.6;
+      color: #555;
     }
-    .pet-info dt {
-      font-weight: 600;
-      display: inline;
+
+    .pet-stat {
+      display: inline-block;
+      margin-right: 12px;
+      padding-right: 12px;
+      border-right: 1px solid #ecf0f1;
     }
-    .pet-info dd {
-      display: inline;
-      margin-left: 4px;
+
+    .pet-stat:last-child {
+      border-right: none;
     }
+
+    .loader-text {
+      text-align: center;
+      padding: 20px;
+      color: #7f8c8d;
+    }
+
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #ecf0f1;
+      border-top: 3px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
     @media (max-width: 1024px) {
       .league-container {
         grid-template-columns: 1fr;
@@ -126,7 +189,10 @@
           </div>
           <div class="card-body">
             <div id="leaderboard-list">
-              <div class="loader"></div>
+              <div class="loader-text">
+                <div class="loader"></div>
+                <p>Loading leaderboard...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -138,7 +204,10 @@
           </div>
           <div class="card-body">
             <div id="rosters-list">
-              <div class="loader"></div>
+              <div class="loader-text">
+                <div class="loader"></div>
+                <p>Loading rosters...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -148,11 +217,14 @@
       <div class="league-right">
         <div class="card">
           <div class="card-header">
-            <h2>Available Pets</h2>
+            <h2>Available Pets to Draft</h2>
           </div>
           <div class="card-body">
             <div id="pets-list">
-              <div class="loader"></div>
+              <div class="loader-text">
+                <div class="loader"></div>
+                <p>Loading pets...</p>
+              </div>
             </div>
           </div>
         </div>
@@ -168,6 +240,9 @@
         window.location.href = '/dashboard.html';
         return;
       }
+
+      console.log('[LEAGUE] Loading league view:', leagueId);
+      
       app.loadLeaderboard(leagueId);
       app.loadLeagueRosters(leagueId);
       app.loadLeagueAvailablePets(leagueId);

@@ -1,10 +1,15 @@
-// frontend/js/app.js - Main frontend application logic with debug logging
+// frontend/js/app.js - Main frontend application logic with pagination and enhancements
 
 // ===== Configuration =====
 
 const API_BASE = window.location.origin;
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'user_data';
+const PETS_PER_PAGE = 12;
+
+// Pagination state
+let petsCurrentPage = 1;
+let allPetsData = [];
 
 // ===== Utility Functions =====
 
@@ -28,6 +33,14 @@ function setUser(user) {
 function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+}
+
+function calculateDaysSince(date) {
+  if (!date) return 0;
+  const now = new Date();
+  const then = new Date(date);
+  const diff = now - then;
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
 async function apiCall(endpoint, options = {}) {
@@ -124,12 +137,7 @@ async function handleSignup(event) {
     }, 1500);
   } catch (error) {
     console.error('Signup error:', error);
-    
-    if (error.message.includes('already exists')) {
-      showAlert('That passphrase is already taken. Try a different one.', 'danger');
-    } else {
-      showAlert(`Error: ${error.message}`, 'danger');
-    }
+    showAlert(`Error: ${error.message}`, 'danger');
   }
 }
 
@@ -215,14 +223,30 @@ async function loadUserLeagues() {
       return;
     }
 
-    container.innerHTML = leagues.map(league => `
+    // Get member count for each league
+    const leaguesWithCounts = await Promise.all(
+      leagues.map(async (league) => {
+        try {
+          const members = await apiCall(`/api/leagues/${league.id}/members`);
+          return { ...league, memberCount: members ? members.length : 0 };
+        } catch (e) {
+          console.warn('[LEAGUES] Could not load member count for', league.id);
+          return { ...league, memberCount: 0 };
+        }
+      })
+    );
+
+    container.innerHTML = leaguesWithCounts.map(league => `
       <div class="league-entry">
-        <div class="league-name">${league.name}</div>
+        <div class="league-info">
+          <div class="league-name">${league.name}</div>
+          <div class="league-meta">👥 ${league.memberCount} player${league.memberCount !== 1 ? 's' : ''}</div>
+        </div>
         <button class="btn btn-primary btn-small" onclick="app.viewLeague('${league.id}')">View</button>
       </div>
     `).join('');
     
-    console.log('[LEAGUES] Rendered', leagues.length, 'leagues');
+    console.log('[LEAGUES] Rendered', leagues.length, 'leagues with member counts');
   } catch (error) {
     console.error('[LEAGUES] Error:', error);
     const container = document.getElementById('your-leagues-list');
@@ -237,7 +261,6 @@ async function loadAvailableLeagues() {
   try {
     console.log('[AVAILABLE] Loading available leagues...');
     
-    // FIXED: Corrected endpoint path
     const response = await apiCall('/api/leagues/available/list');
     
     console.log('[AVAILABLE] Got response:', response);
@@ -253,7 +276,6 @@ async function loadAvailableLeagues() {
       return;
     }
 
-    // Handle both array response and object response with data property
     const leagues = Array.isArray(response) ? response : response.data || response.leagues || [];
 
     if (leagues.length === 0) {
@@ -262,14 +284,30 @@ async function loadAvailableLeagues() {
       return;
     }
 
-    container.innerHTML = leagues.map(league => `
+    // Get member count for each league
+    const leaguesWithCounts = await Promise.all(
+      leagues.map(async (league) => {
+        try {
+          const members = await apiCall(`/api/leagues/${league.id}/members`);
+          return { ...league, memberCount: members ? members.length : 0 };
+        } catch (e) {
+          console.warn('[AVAILABLE] Could not load member count for', league.id);
+          return { ...league, memberCount: 0 };
+        }
+      })
+    );
+
+    container.innerHTML = leaguesWithCounts.map(league => `
       <div class="league-entry">
-        <div class="league-name">${league.name}</div>
+        <div class="league-info">
+          <div class="league-name">${league.name}</div>
+          <div class="league-meta">👥 ${league.memberCount} player${league.memberCount !== 1 ? 's' : ''}</div>
+        </div>
         <button class="btn btn-success btn-small" onclick="app.joinLeague('${league.id}')">Join</button>
       </div>
     `).join('');
     
-    console.log('[AVAILABLE] Rendered', leagues.length, 'available leagues');
+    console.log('[AVAILABLE] Rendered', leagues.length, 'available leagues with member counts');
   } catch (error) {
     console.error('[AVAILABLE] Error:', error);
     const container = document.getElementById('available-leagues-list');
@@ -342,11 +380,65 @@ function viewLeague(leagueId) {
 
 // ===== Pets =====
 
-function calculateDaysSince(date) {
-  const now = new Date();
-  const then = new Date(date);
-  const diff = now - then;
-  return Math.floor(diff / (1000 * 60 * 60 * 24));
+function renderPetCard(pet) {
+  const daysInShelter = calculateDaysSince(pet.first_seen);
+  return `
+    <div class="pet-card">
+      <div class="pet-card-header">
+        <h3>${pet.name}</h3>
+        <div class="pet-card-breed">${pet.breed}</div>
+      </div>
+      <div class="pet-card-body">
+        <div class="pet-info">
+          <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
+          <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
+          <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
+          <dt>In Shelter:</dt><dd>${daysInShelter} days</dd>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPetsPagination() {
+  const totalPages = Math.ceil(allPetsData.length / PETS_PER_PAGE);
+  
+  if (totalPages <= 1) return '';
+  
+  let html = '<div style="display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap;">';
+  
+  // Previous button
+  if (petsCurrentPage > 1) {
+    html += `<button class="btn btn-secondary btn-small" onclick="app.goToPetsPage(${petsCurrentPage - 1})">← Previous</button>`;
+  }
+  
+  // Page numbers
+  const startPage = Math.max(1, petsCurrentPage - 2);
+  const endPage = Math.min(totalPages, petsCurrentPage + 2);
+  
+  if (startPage > 1) {
+    html += `<button class="btn ${petsCurrentPage === 1 ? 'btn-primary' : 'btn-outline'} btn-small" onclick="app.goToPetsPage(1)">1</button>`;
+    if (startPage > 2) html += '<span style="padding: 8px;">...</span>';
+  }
+  
+  for (let i = startPage; i <= endPage; i++) {
+    html += `<button class="btn ${petsCurrentPage === i ? 'btn-primary' : 'btn-outline'} btn-small" onclick="app.goToPetsPage(${i})">${i}</button>`;
+  }
+  
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) html += '<span style="padding: 8px;">...</span>';
+    html += `<button class="btn ${petsCurrentPage === totalPages ? 'btn-primary' : 'btn-outline'} btn-small" onclick="app.goToPetsPage(${totalPages})">${totalPages}</button>`;
+  }
+  
+  // Next button
+  if (petsCurrentPage < totalPages) {
+    html += `<button class="btn btn-secondary btn-small" onclick="app.goToPetsPage(${petsCurrentPage + 1})">Next →</button>`;
+  }
+  
+  html += `<span style="padding: 8px; font-size: 14px;">Page ${petsCurrentPage} of ${totalPages}</span>`;
+  html += '</div>';
+  
+  return html;
 }
 
 async function loadAllPets() {
@@ -370,27 +462,22 @@ async function loadAllPets() {
       return;
     }
 
-    container.innerHTML = pets.slice(0, 12).map(pet => {
-      const daysInShelter = calculateDaysSince(pet.first_seen);
-      return `
-        <div class="pet-card">
-          <div class="pet-card-header">
-            <h3>${pet.name}</h3>
-            <div class="pet-card-breed">${pet.breed}</div>
-          </div>
-          <div class="pet-card-body">
-            <div class="pet-info">
-              <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
-              <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
-              <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
-              <dt>Days:</dt><dd>${daysInShelter}</dd>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    allPetsData = pets;
+    petsCurrentPage = 1;
     
-    console.log('[PETS] Rendered', Math.min(pets.length, 12), 'pets');
+    const start = (petsCurrentPage - 1) * PETS_PER_PAGE;
+    const end = start + PETS_PER_PAGE;
+    const petsToDisplay = pets.slice(start, end);
+    
+    const petsHtml = petsToDisplay.map(pet => renderPetCard(pet)).join('');
+    const pagination = renderPetsPagination();
+    
+    container.innerHTML = `
+      <div class="grid grid-3">${petsHtml}</div>
+      ${pagination}
+    `;
+    
+    console.log('[PETS] Rendered page', petsCurrentPage, 'with', petsToDisplay.length, 'pets (total:', pets.length, ')');
   } catch (error) {
     console.error('[PETS] Error:', error);
     const container = document.getElementById('all-pets-list');
@@ -399,6 +486,32 @@ async function loadAllPets() {
     }
     showAlert('Error loading pets: ' + error.message, 'danger');
   }
+}
+
+function goToPetsPage(pageNum) {
+  const totalPages = Math.ceil(allPetsData.length / PETS_PER_PAGE);
+  
+  if (pageNum < 1 || pageNum > totalPages) return;
+  
+  petsCurrentPage = pageNum;
+  
+  const container = document.getElementById('all-pets-list');
+  if (!container) return;
+  
+  const start = (petsCurrentPage - 1) * PETS_PER_PAGE;
+  const end = start + PETS_PER_PAGE;
+  const petsToDisplay = allPetsData.slice(start, end);
+  
+  const petsHtml = petsToDisplay.map(pet => renderPetCard(pet)).join('');
+  const pagination = renderPetsPagination();
+  
+  container.innerHTML = `
+    <div class="grid grid-3">${petsHtml}</div>
+    ${pagination}
+  `;
+  
+  document.querySelector('.card:has(#all-pets-list)')?.scrollIntoView({ behavior: 'smooth' });
+  console.log('[PETS] Navigated to page', petsCurrentPage);
 }
 
 async function loadLeagueAvailablePets(leagueId) {
@@ -415,7 +528,7 @@ async function loadLeagueAvailablePets(leagueId) {
     const availablePets = allPets.filter(p => !draftedPetIds.has(p.pet_id));
 
     if (availablePets.length === 0) {
-      container.innerHTML = '<p>No available pets in this league.</p>';
+      container.innerHTML = '<p>No available pets to draft. All pets in this league have been drafted!</p>';
       return;
     }
 
@@ -428,19 +541,23 @@ async function loadLeagueAvailablePets(leagueId) {
             <div class="pet-card-breed">${pet.breed}</div>
           </div>
           <div class="pet-card-body">
-            <div class="pet-info">
-              <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
-              <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
-              <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
-              <dt>Days:</dt><dd>${daysInShelter}</dd>
+            <div class="pet-card-stats">
+              <span class="pet-stat"><strong>Type:</strong> ${pet.animal_type}</span>
+              <span class="pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+              <span class="pet-stat"><strong>Age:</strong> ${pet.age || 'N/A'}</span>
+              <span class="pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
             </div>
-            <button class="btn btn-primary btn-block" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft</button>
+            <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
           </div>
         </div>
       `;
     }).join('');
   } catch (error) {
     console.error('[LEAGUE_PETS] Error:', error);
+    const container = document.getElementById('pets-list');
+    if (container) {
+      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
     showAlert('Error loading pets: ' + error.message, 'danger');
   }
 }
@@ -479,35 +596,67 @@ async function loadLeagueRosters(leagueId) {
     
     const rosters = await apiCall(`/api/drafting/league/${leagueId}/rosters`);
     
-    if (!rosters) return;
+    if (!rosters) {
+      console.log('[ROSTERS] No rosters data');
+      return;
+    }
     
     const container = document.getElementById('rosters-list');
     if (!container) return;
 
-    if (rosters.length === 0 || !rosters[0].pets) {
+    if (rosters.length === 0) {
       container.innerHTML = '<p>No rosters yet.</p>';
       return;
     }
 
-    let html = '<table class="table"><thead><tr><th>Name</th><th>Pets</th><th>Points</th></tr></thead><tbody>';
-    
-    rosters.forEach(roster => {
-      const petCount = (roster.pets && roster.pets.length) || 0;
-      html += `
-        <tr>
-          <td>${roster.first_name || 'Anonymous'}</td>
-          <td>${petCount}</td>
-          <td>-</td>
-        </tr>
-      `;
-    });
+    // Build roster display with player names and their pets
+    const rosterHtml = rosters.map(roster => {
+      const playerName = roster.first_name || 'Anonymous';
+      const pets = roster.pets || [];
 
-    html += '</tbody></table>';
-    container.innerHTML = html;
-    
-    console.log('[ROSTERS] Rendered', rosters.length, 'rosters');
+      if (pets.length === 0) {
+        return `
+          <div class="roster-player">
+            <div class="roster-player-name">${playerName}</div>
+            <p style="font-size: 13px; color: #7f8c8d; margin: 0;">No pets drafted yet</p>
+          </div>
+        `;
+      }
+
+      const petsHtml = pets.map(pet => {
+        const daysOnRoster = calculateDaysSince(pet.drafted_date);
+        const daysInShelter = calculateDaysSince(pet.first_seen || pet.brought_to_shelter);
+        
+        return `
+          <div class="roster-pet">
+            <div class="roster-pet-name">${pet.name}</div>
+            <div class="roster-pet-stats">
+              <span class="roster-pet-stat"><strong>Type:</strong> ${pet.animal_type || 'N/A'}</span>
+              <span class="roster-pet-stat"><strong>Breed:</strong> ${pet.breed || 'N/A'}</span>
+              <span class="roster-pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+              <span class="roster-pet-stat"><strong>On Roster:</strong> ${daysOnRoster}d</span>
+              <span class="roster-pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="roster-player">
+          <div class="roster-player-name">${playerName}</div>
+          ${petsHtml}
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = rosterHtml;
+    console.log('[ROSTERS] Rendered', rosters.length, 'rosters with pets');
   } catch (error) {
     console.error('[ROSTERS] Error:', error);
+    const container = document.getElementById('rosters-list');
+    if (container) {
+      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
     showAlert('Error loading rosters: ' + error.message, 'danger');
   }
 }
@@ -551,6 +700,10 @@ async function loadLeaderboard(leagueId) {
     console.log('[LEADERBOARD] Rendered', leaderboard.length, 'entries');
   } catch (error) {
     console.error('[LEADERBOARD] Error:', error);
+    const container = document.getElementById('leaderboard-list');
+    if (container) {
+      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
     showAlert('Error loading leaderboard: ' + error.message, 'danger');
   }
 }
@@ -603,6 +756,10 @@ async function loadRoster(leagueId) {
     console.log('[ROSTER] Rendered', roster.length, 'pets');
   } catch (error) {
     console.error('[ROSTER] Error:', error);
+    const container = document.getElementById('roster-list');
+    if (container) {
+      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
     showAlert('Error loading roster: ' + error.message, 'danger');
   }
 }
@@ -644,6 +801,7 @@ window.app = {
   loadAllPets,
   loadLeagueAvailablePets,
   draftPet,
+  goToPetsPage,
   
   loadLeagueRosters,
   
