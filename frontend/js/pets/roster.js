@@ -44,13 +44,18 @@ window.loadLeagueRosters = async function(leagueId) {
         const daysInShelter = window.calculateDaysSince(pet.brought_to_shelter);
         const source = pet.source || 'Unknown';
         
+        // Build image HTML separately to avoid escaping issues
+        let imageHtml = '';
+        if (pet.photo_url) {
+          imageHtml = `<img src="${pet.photo_url}" alt="${pet.name}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">`;
+        } else {
+          imageHtml = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #ecf0f1; color: #95a5a6; font-size: 32px;">📷</div>';
+        }
+        
         return `
           <div class="roster-pet-with-photo">
             <div class="roster-pet-photo">
-              ${pet.photo_url 
-                ? `<img src="${pet.photo_url}" alt="${pet.name}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;" onerror="this.parentElement.innerHTML='<div style=\\"display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #ecf0f1; color: #95a5a6; font-size: 32px;\\">📷</div>';">`
-                : '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #ecf0f1; color: #95a5a6; font-size: 32px;">📷</div>'
-              }
+              ${imageHtml}
             </div>
             <div class="roster-pet-info">
               <div class="roster-pet-name">${pet.name}</div>
@@ -109,7 +114,7 @@ window.loadRoster = async function(leagueId) {
           <div class="pet-grid-item">
             <div class="pet-grid-photo">
               ${pet.photo_url 
-                ? `<img src="${pet.photo_url}" alt="${pet.name}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;" onerror="this.parentElement.innerHTML='<div style=\\"display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #ecf0f1; color: #95a5a6; font-size: 32px;\\">📷</div>';">`
+                ? `<img src="${pet.photo_url}" alt="${pet.name}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">`
                 : '<div class="pet-photo-placeholder">📷</div>'
               }
             </div>
