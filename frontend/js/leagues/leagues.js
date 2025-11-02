@@ -50,10 +50,10 @@ window.loadUserLeagues = async function() {
   }
 };
 
+// FIX: Fetch member counts for available leagues just like we do for user leagues
 window.loadAvailableLeagues = async function() {
   try {
     console.log('[AVAILABLE_LEAGUES] Loading...');
-    // FIX: Call /api/leagues/available/list instead of /api/leagues
     const allLeagues = await window.apiCall('/api/leagues/available/list');
     
     if (!allLeagues) return;
@@ -66,17 +66,30 @@ window.loadAvailableLeagues = async function() {
       return;
     }
 
-    container.innerHTML = allLeagues.map(league => `
+    // NEW: Fetch member counts for each available league
+    const leaguesWithCounts = await Promise.all(
+      allLeagues.map(async (league) => {
+        try {
+          const members = await window.apiCall(`/api/leagues/${league.id}/members`);
+          return { ...league, memberCount: members ? members.length : 0 };
+        } catch (e) {
+          console.warn('[AVAILABLE_LEAGUES] Could not load member count for', league.id);
+          return { ...league, memberCount: 0 };
+        }
+      })
+    );
+
+    container.innerHTML = leaguesWithCounts.map(league => `
       <div class="league-entry">
         <div class="league-info">
           <div class="league-name">${league.name}</div>
-          <div class="league-meta">👥 ${league.memberCount || 0} players</div>
+          <div class="league-meta">👥 ${league.memberCount} player${league.memberCount !== 1 ? 's' : ''}</div>
         </div>
         <button class="btn btn-success btn-small" onclick="app.joinLeague('${league.id}')">Join</button>
       </div>
     `).join('');
     
-    console.log('[AVAILABLE_LEAGUES] Rendered', allLeagues.length, 'leagues');
+    console.log('[AVAILABLE_LEAGUES] Rendered', allLeagues.length, 'leagues with member counts');
   } catch (error) {
     console.error('[AVAILABLE_LEAGUES Error]:', error);
   }
