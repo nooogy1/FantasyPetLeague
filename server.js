@@ -26,7 +26,7 @@ console.log('JWT_SECRET:', process.env.JWT_SECRET ? '✓ Set' : '✗ Using defau
 
 // ============ IMPORT ROUTE MODULES ============
 
-let authRoutes, leagueRoutes, draftingRoutes, leaderboardRoutes, petRoutes, adminRoutes;
+let authRoutes, leagueRoutes, draftingRoutes, leaderboardRoutes, petRoutes, adminRoutes, wordlistRoutes;
 
 try {
   authRoutes = require('./backend/routes/auth');
@@ -63,6 +63,13 @@ try {
   console.error('✗ Failed to load pet routes:', e.message);
 }
 
+try {
+  wordlistRoutes = require('./backend/routes/wordlist');
+  console.log('✓ Wordlist routes loaded');
+} catch (e) {
+  console.error('✗ Failed to load wordlist routes:', e.message);
+}
+
 // Admin routes for breed management only (no scraper endpoint)
 try {
   adminRoutes = require('./backend/routes/admin');
@@ -78,6 +85,7 @@ if (leagueRoutes) app.use('/api/leagues', leagueRoutes);
 if (draftingRoutes) app.use('/api/drafting', draftingRoutes);
 if (leaderboardRoutes) app.use('/api/leaderboard', leaderboardRoutes);
 if (petRoutes) app.use('/api/pets', petRoutes);
+if (wordlistRoutes) app.use('/api/wordlist', wordlistRoutes);
 if (adminRoutes) app.use('/admin', adminRoutes);
 
 console.log('\n✓ All routes registered:');
@@ -86,6 +94,7 @@ console.log('  - /api/leagues');
 console.log('  - /api/drafting');
 console.log('  - /api/leaderboard');
 console.log('  - /api/pets');
+console.log('  - /api/wordlist');
 console.log('  - /admin (breed management only - scraper removed)');
 
 // ============ SERVE HTML PAGES ============
