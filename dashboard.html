@@ -291,9 +291,9 @@
       logDebug('success', 'Debug log downloaded');
     }
 
-    // ===== Page Initialization =====
+    // ===== Page Initialization (FIXED) =====
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function initDashboard() {
       logDebug('info', '📊 Dashboard loading...');
       
       const token = localStorage.getItem('auth_token');
@@ -322,6 +322,19 @@
 
       logDebug('info', 'Fetching All Pets...');
       app.loadAllPets();
+    }
+
+    // Wait for app to be initialized before loading dashboard data
+    function waitForApp() {
+      if (window.app && typeof window.app.loadUserLeagues === 'function') {
+        initDashboard();
+      } else {
+        setTimeout(waitForApp, 100);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      waitForApp();
     });
   </script>
 </body>

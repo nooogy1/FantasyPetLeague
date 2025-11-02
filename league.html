@@ -237,7 +237,7 @@
     let currentLeagueId = null;
     let leagueCurrentPage = 1;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function initLeague() {
       currentLeagueId = new URLSearchParams(window.location.search).get('id');
       if (!currentLeagueId) {
         window.location.href = '/dashboard.html';
@@ -249,22 +249,41 @@
       app.loadLeaderboard(currentLeagueId);
       app.loadLeagueRosters(currentLeagueId);
       app.loadLeagueAvailablePets(currentLeagueId);
+    }
+
+    // Wait for app to be initialized before loading league data
+    function waitForApp() {
+      if (window.app && typeof window.app.loadLeaderboard === 'function') {
+        initLeague();
+      } else {
+        setTimeout(waitForApp, 100);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      waitForApp();
     });
 
-    const originalDraftPet = window.app.draftPet;
+    const originalDraftPet = function() {
+      if (window.app && window.app.draftPet) return window.app.draftPet;
+      return null;
+    };
+
     window.draftPetLeague = async function(petId, leagueId) {
       const savedPage = leagueCurrentPage;
       console.log('[LEAGUE-DRAFT] Saving page:', savedPage);
       
       try {
-        await originalDraftPet(petId, leagueId);
-        
-        setTimeout(() => {
-          console.log('[LEAGUE-DRAFT] Restoring page:', savedPage);
-          app.loadLeagueRosters(leagueId);
-          leagueCurrentPage = savedPage;
-          app.loadLeagueAvailablePets(leagueId);
-        }, 800);
+        if (window.app && window.app.draftPet) {
+          await window.app.draftPet(petId, leagueId);
+          
+          setTimeout(() => {
+            console.log('[LEAGUE-DRAFT] Restoring page:', savedPage);
+            app.loadLeagueRosters(leagueId);
+            leagueCurrentPage = savedPage;
+            app.loadLeagueAvailablePets(leagueId);
+          }, 800);
+        }
       } catch (error) {
         console.error('[LEAGUE-DRAFT] Error:', error);
       }
@@ -273,8 +292,8 @@
     window.goToLeaguePagePreserve = function(pageNum) {
       console.log('[LEAGUE-PAGE] Navigating to page:', pageNum);
       leagueCurrentPage = pageNum;
-      if (window.goToLeaguePagePreserve.original) {
-        window.goToLeaguePagePreserve.original(pageNum);
+      if (typeof window.goToLeaguePagePreserveOriginal === 'function') {
+        window.goToLeaguePagePreserveOriginal(pageNum);
       }
     };
   </script>
