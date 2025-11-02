@@ -5,6 +5,53 @@ const API_BASE = window.location.origin;
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'user_data';
 
+// ===== Debug System =====
+const debugLogs = [];
+const MAX_DEBUG_LOGS = 60;
+
+function logDebug(type, message, data = null) {
+  const timestamp = new Date().toLocaleTimeString();
+  const logEntry = { type, message, data, timestamp };
+  debugLogs.push(logEntry);
+  
+  if (debugLogs.length > MAX_DEBUG_LOGS) {
+    debugLogs.shift();
+  }
+
+  console.log(`[${type.toUpperCase()}] ${message}`, data || '');
+  updateDebugUI();
+}
+
+function updateDebugUI() {
+  const debugLog = document.getElementById('debug-log');
+  if (!debugLog) return;
+  
+  debugLog.innerHTML = debugLogs.map(entry => {
+    let emoji = '📝';
+    if (entry.type === 'error') emoji = '❌';
+    else if (entry.type === 'success') emoji = '✅';
+    else if (entry.type === 'warning') emoji = '⚠️';
+
+    let dataStr = '';
+    if (entry.data) {
+      const dataJson = typeof entry.data === 'string' 
+        ? entry.data 
+        : JSON.stringify(entry.data);
+      dataStr = `<br><small>→ ${dataJson.slice(0, 120)}${dataJson.length > 120 ? '...' : ''}</small>`;
+    }
+
+    return `<div style="margin-bottom: 3px; padding: 2px 4px; border-radius: 2px; background: ${
+      entry.type === 'error' ? '#fed7d7' : entry.type === 'success' ? '#c6f6d5' : entry.type === 'warning' ? '#feebc8' : '#d6eaf8'
+    }; color: ${
+      entry.type === 'error' ? '#742a2a' : entry.type === 'success' ? '#22543d' : entry.type === 'warning' ? '#7c2d12' : '#1e3a8a'
+    };">
+      ${emoji} [${entry.timestamp}] ${entry.message}${dataStr}
+    </div>`;
+  }).join('');
+
+  debugLog.scrollTop = debugLog.scrollHeight;
+}
+
 // ===== State =====
 let allUsers = [];
 let allLeagues = [];
@@ -33,6 +80,8 @@ async function apiCall(endpoint, options = {}) {
   }
 
   try {
+    logDebug('info', `API: ${options.method || 'GET'} ${endpoint}`);
+    
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
       headers,
@@ -43,14 +92,18 @@ async function apiCall(endpoint, options = {}) {
       throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
-    return await response.json();
+    const data = await response.json();
+    logDebug('success', `API response received`);
+    return data;
   } catch (error) {
-    console.error('[API Error]:', error.message);
+    logDebug('error', `API failed: ${error.message}`);
     throw error;
   }
 }
 
 function showAlert(message, type = 'info') {
+  logDebug(type, message);
+  
   const alertDiv = document.createElement('div');
   alertDiv.className = `alert alert-${type}`;
   alertDiv.innerHTML = `
@@ -68,22 +121,29 @@ function showAlert(message, type = 'info') {
 // ===== Tab Management =====
 
 document.addEventListener('DOMContentLoaded', () => {
+  logDebug('info', '⚙️ Admin dashboard initializing...');
+  
   // Check admin access
   const user = getUser();
   if (!user?.is_admin) {
+    logDebug('error', 'User is not admin, redirecting to dashboard');
     window.location.href = '/dashboard.html';
     return;
   }
+
+  logDebug('success', `Admin verified: ${user.first_name}`);
 
   // Tab switching
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const tabName = e.target.getAttribute('data-tab');
+      logDebug('info', `Switching to tab: ${tabName}`);
       switchTab(tabName);
     });
   });
 
   // Initial load
+  logDebug('info', 'Loading dashboard data...');
   loadStats();
   loadBreeds();
   loadMissingBreeds();
@@ -117,6 +177,7 @@ function switchTab(tabName) {
 
 async function loadStats() {
   try {
+    logDebug('info', 'Fetching stats...');
     const stats = await apiCall('/api/admin/stats');
     
     const container = document.getElementById('stats-container');
@@ -134,8 +195,9 @@ async function loadStats() {
         <p>Total Users</p>
       </div>
     `;
+    logDebug('success', `Stats loaded: ${stats.total_users} users, ${stats.total_leagues} leagues, ${stats.total_pets} pets`);
   } catch (error) {
-    console.error('Error loading stats:', error);
+    logDebug('warning', `Error loading stats: ${error.message}`);
   }
 }
 
@@ -143,7 +205,8 @@ async function loadStats() {
 
 async function loadBreeds() {
   try {
-    const breeds = await apiCall('/api/breed-points');
+    logDebug('info', 'Fetching breeds...');
+    const breeds = await apiCall('/api/admin/breed-points');
     
     const container = document.getElementById('breeds-table');
     if (breeds.length === 0) {
@@ -163,14 +226,16 @@ async function loadBreeds() {
         </div>
       </div>
     `).join('');
+    logDebug('success', `Loaded ${breeds.length} breeds`);
   } catch (error) {
-    console.error('Error loading breeds:', error);
+    logDebug('error', `Error loading breeds: ${error.message}`);
   }
 }
 
 // Breed CRUD operations (from original admin-app.js)
 const admin = {
   handleLogout() {
+    logDebug('info', 'Logging out...');
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     showAlert('Logged out successfully', 'success');
@@ -179,10 +244,12 @@ const admin = {
 
   showModal(modalId) {
     document.getElementById(modalId).style.display = 'block';
+    logDebug('info', `Modal opened: ${modalId}`);
   },
 
   closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
+    logDebug('info', `Modal closed: ${modalId}`);
   },
 
   async handleCreateBreed(event) {
@@ -191,7 +258,8 @@ const admin = {
     const breedPoints = document.getElementById('breedPoints').value;
 
     try {
-      await apiCall('/api/breed-points', {
+      logDebug('info', `Creating breed: ${breedName} (${breedPoints} points)`);
+      await apiCall('/api/admin/breed-points', {
         method: 'POST',
         body: JSON.stringify({ breed: breedName, points: breedPoints })
       });
@@ -207,6 +275,7 @@ const admin = {
   },
 
   editBreed(id, breed, points) {
+    logDebug('info', `Editing breed: ${breed}`);
     document.getElementById('breedId').value = id;
     document.getElementById('editBreedName').value = breed;
     document.getElementById('editBreedPoints').value = points;
@@ -219,7 +288,8 @@ const admin = {
     const breedPoints = document.getElementById('editBreedPoints').value;
 
     try {
-      await apiCall(`/api/breed-points/${breedId}`, {
+      logDebug('info', `Updating breed ${breedId}: ${breedPoints} points`);
+      await apiCall(`/api/admin/breed-points/${breedId}`, {
         method: 'PUT',
         body: JSON.stringify({ points: breedPoints })
       });
@@ -233,10 +303,15 @@ const admin = {
   },
 
   async deleteBreed(id, breed) {
-    if (!confirm(`Delete breed "${breed}"?`)) return;
+    logDebug('warning', `Delete breed requested: ${breed} (${id})`);
+    if (!confirm(`Delete breed "${breed}"?`)) {
+      logDebug('info', 'Delete breed cancelled');
+      return;
+    }
 
     try {
-      await apiCall(`/api/breed-points/${id}`, { method: 'DELETE' });
+      logDebug('info', `Deleting breed: ${breed}`);
+      await apiCall(`/api/admin/breed-points/${id}`, { method: 'DELETE' });
       showAlert('Breed deleted successfully!', 'success');
       loadBreeds();
     } catch (error) {
@@ -247,6 +322,7 @@ const admin = {
   // ===== Users =====
 
   filterUsers(query) {
+    logDebug('info', `Filtering users: "${query}"`);
     const filtered = allUsers.filter(u => 
       u.first_name.toLowerCase().includes(query.toLowerCase()) ||
       (u.city && u.city.toLowerCase().includes(query.toLowerCase()))
@@ -255,6 +331,7 @@ const admin = {
   },
 
   deleteUser(userId, userName) {
+    logDebug('info', `Delete user requested: ${userName} (${userId})`);
     deleteTarget = { type: 'user', id: userId, name: userName };
     document.getElementById('modal-message').innerHTML = `
       <strong>Delete User: ${userName}</strong><br><br>
@@ -265,11 +342,13 @@ const admin = {
       This action cannot be undone.
     `;
     document.getElementById('delete-modal').style.display = 'block';
+    logDebug('info', 'Delete modal opened for user');
   },
 
   // ===== Leagues =====
 
   filterLeagues(query) {
+    logDebug('info', `Filtering leagues: "${query}"`);
     const filtered = allLeagues.filter(l => 
       l.name.toLowerCase().includes(query.toLowerCase())
     );
@@ -277,6 +356,7 @@ const admin = {
   },
 
   deleteLeague(leagueId, leagueName) {
+    logDebug('info', `Delete league requested: ${leagueName} (${leagueId})`);
     deleteTarget = { type: 'league', id: leagueId, name: leagueName };
     document.getElementById('modal-message').innerHTML = `
       <strong>Delete League: ${leagueName}</strong><br><br>
@@ -287,6 +367,7 @@ const admin = {
       This action cannot be undone.
     `;
     document.getElementById('delete-modal').style.display = 'block';
+    logDebug('info', 'Delete modal opened for league');
   },
 
   // ===== Modal =====
@@ -294,30 +375,64 @@ const admin = {
   closeDeleteModal() {
     document.getElementById('delete-modal').style.display = 'none';
     deleteTarget = null;
+    logDebug('info', 'Delete modal closed');
   },
 
   async confirmDelete() {
-    if (!deleteTarget) return;
+    if (!deleteTarget) {
+      logDebug('warning', 'No delete target set');
+      return;
+    }
 
     try {
       if (deleteTarget.type === 'user') {
+        logDebug('info', `Confirming user delete: ${deleteTarget.name}`);
         await apiCall(`/api/admin/users/${deleteTarget.id}`, {
           method: 'DELETE'
         });
+        logDebug('success', `User deleted: ${deleteTarget.name}`);
         showAlert(`User "${deleteTarget.name}" deleted successfully`, 'success');
         admin.closeDeleteModal();
         loadUsers();
       } else if (deleteTarget.type === 'league') {
+        logDebug('info', `Confirming league delete: ${deleteTarget.name}`);
         await apiCall(`/api/admin/leagues/${deleteTarget.id}`, {
           method: 'DELETE'
         });
+        logDebug('success', `League deleted: ${deleteTarget.name}`);
         showAlert(`League "${deleteTarget.name}" deleted successfully`, 'success');
         admin.closeDeleteModal();
         loadLeagues();
       }
     } catch (error) {
+      logDebug('error', `Delete failed: ${error.message}`);
       showAlert(`Error deleting: ${error.message}`, 'danger');
     }
+  },
+
+  // ===== Debug Console =====
+
+  clearDebugLog() {
+    debugLogs.length = 0;
+    updateDebugUI();
+    logDebug('info', 'Debug log cleared');
+  },
+
+  downloadDebugLog() {
+    const text = debugLogs.map(entry => 
+      `[${entry.timestamp}] [${entry.type.toUpperCase()}] ${entry.message}` + 
+      (entry.data ? ` → ${JSON.stringify(entry.data)}` : '')
+    ).join('\n');
+
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `admin-debug-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    logDebug('success', 'Debug log downloaded');
   }
 };
 
@@ -325,11 +440,13 @@ const admin = {
 
 async function loadMissingBreeds() {
   try {
+    logDebug('info', 'Fetching missing breeds...');
     const data = await apiCall('/api/admin/missing-breeds');
     const container = document.getElementById('missing-breeds-table');
 
     if (!data.missing_breeds || data.missing_breeds.length === 0) {
       container.innerHTML = '<p>No missing breeds!</p>';
+      logDebug('success', 'No missing breeds found');
       return;
     }
 
@@ -349,14 +466,16 @@ async function loadMissingBreeds() {
         </div>
       `).join('')}
     `;
+    logDebug('success', `Found ${data.missing_breeds.length} missing breeds`);
   } catch (error) {
-    console.error('Error loading missing breeds:', error);
+    logDebug('warning', `Error loading missing breeds: ${error.message}`);
   }
 }
 
 admin.quickAddBreed = async function(breedName) {
   try {
-    await apiCall('/api/breed-points', {
+    logDebug('info', `Quick-adding breed: ${breedName}`);
+    await apiCall('/api/admin/breed-points', {
       method: 'POST',
       body: JSON.stringify({ breed: breedName, points: 5 })
     });
@@ -372,11 +491,13 @@ admin.quickAddBreed = async function(breedName) {
 
 async function loadScraperLogs() {
   try {
+    logDebug('info', 'Fetching scraper logs...');
     const data = await apiCall('/api/admin/scraper-logs');
     const container = document.getElementById('scraper-logs-table');
 
     if (!data.logs || data.logs.length === 0) {
       container.innerHTML = '<p>No scraper logs available yet.</p>';
+      logDebug('info', 'No scraper logs available');
       return;
     }
 
@@ -404,9 +525,9 @@ async function loadScraperLogs() {
         <tbody>${logsHtml}</tbody>
       </table>
     `;
+    logDebug('success', `Loaded ${data.logs.length} scraper logs`);
   } catch (error) {
-    console.error('Error loading logs:', error);
-    document.getElementById('scraper-logs-table').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    logDebug('warning', `Error loading logs: ${error.message}`);
   }
 }
 
@@ -414,11 +535,13 @@ async function loadScraperLogs() {
 
 async function loadUsers() {
   try {
+    logDebug('info', 'Fetching users...');
     const users = await apiCall('/api/admin/users');
     allUsers = users;
     renderUsers(users);
+    logDebug('success', `Loaded ${users.length} users`);
   } catch (error) {
-    console.error('[ADMIN] Error loading users:', error);
+    logDebug('error', `Error loading users: ${error.message}`);
     document.getElementById('users-list').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
   }
 }
@@ -445,17 +568,20 @@ function renderUsers(users) {
       </div>
     </div>
   `).join('');
+  logDebug('info', `Rendered ${users.length} users`);
 }
 
 // ===== Leagues Management =====
 
 async function loadLeagues() {
   try {
+    logDebug('info', 'Fetching leagues...');
     const leagues = await apiCall('/api/admin/leagues');
     allLeagues = leagues;
     renderLeagues(leagues);
+    logDebug('success', `Loaded ${leagues.length} leagues`);
   } catch (error) {
-    console.error('[ADMIN] Error loading leagues:', error);
+    logDebug('error', `Error loading leagues: ${error.message}`);
     document.getElementById('leagues-list').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
   }
 }
@@ -479,4 +605,5 @@ function renderLeagues(leagues) {
       </div>
     </div>
   `).join('');
+  logDebug('info', `Rendered ${leagues.length} leagues`);
 }
