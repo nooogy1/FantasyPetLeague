@@ -16,6 +16,25 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 
 console.log('[AUTH] Initialized - Passphrase-based authentication');
 
+// ============ MIDDLEWARE ============
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
 // ============ SIGNUP ============
 
 router.post('/signup', async (req, res) => {
@@ -153,6 +172,49 @@ router.post('/verify', async (req, res) => {
     });
   } catch (error) {
     console.error('[VERIFY] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ UPDATE NAME ============
+
+router.post('/update-name', authenticateToken, async (req, res) => {
+  try {
+    const { firstName } = req.body;
+    const userId = req.user.userId;
+
+    console.log('[UPDATE_NAME] Request received:', { userId, firstName });
+
+    if (!firstName) {
+      console.log('[UPDATE_NAME] Missing firstName');
+      return res.status(400).json({ error: 'First name required' });
+    }
+
+    // Update user's first name
+    const result = await pool.query(
+      `UPDATE users SET first_name = $1 WHERE id = $2 RETURNING id, first_name, city, is_admin`,
+      [firstName, userId]
+    );
+
+    if (result.rows.length === 0) {
+      console.log('[UPDATE_NAME] User not found:', userId);
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    console.log('[UPDATE_NAME] Name updated successfully:', user.first_name);
+
+    res.json({ 
+      success: true,
+      user: {
+        id: user.id,
+        first_name: user.first_name,
+        city: user.city,
+        is_admin: user.is_admin
+      }
+    });
+  } catch (error) {
+    console.error('[UPDATE_NAME] Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
