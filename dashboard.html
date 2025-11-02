@@ -23,6 +23,19 @@
       opacity: 0.9;
       font-size: 16px;
     }
+    .league-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .league-name {
+      font-weight: 600;
+      flex: 1;
+    }
   </style>
 </head>
 <body data-page="dashboard">
@@ -38,7 +51,7 @@
     <!-- Welcome Banner -->
     <div class="welcome-banner">
       <h1>Welcome, <span id="user-name">Loading...</span>! 🎉</h1>
-      <p>Draft pets, earn points, and compete on the leaderboard</p>
+      <p>Join leagues, draft pets, and compete on leaderboards</p>
     </div>
 
     <!-- Your Leagues -->
@@ -47,7 +60,19 @@
         <h2>Your Leagues</h2>
       </div>
       <div class="card-body">
-        <div id="leagues-list">
+        <div id="your-leagues-list">
+          <div class="loader"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Available Leagues -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Available Leagues</h2>
+      </div>
+      <div class="card-body">
+        <div id="available-leagues-list">
           <div class="loader"></div>
         </div>
       </div>
@@ -75,13 +100,13 @@
       </div>
     </div>
 
-    <!-- Pet Database -->
+    <!-- All Pets -->
     <div class="card">
       <div class="card-header">
-        <h2>Available Pets</h2>
+        <h2>All Pets</h2>
       </div>
       <div class="card-body">
-        <div id="pets-list">
+        <div id="all-pets-list">
           <div class="loader"></div>
         </div>
       </div>
@@ -92,7 +117,9 @@
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       if (app.checkAuth()) {
-        app.loadPets();
+        app.loadUserLeagues();
+        app.loadAvailableLeagues();
+        app.loadAllPets();
       }
     });
   </script>

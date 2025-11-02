@@ -48,31 +48,23 @@
       font-weight: 600;
       color: #9b59b6;
     }
-    .roster-entry {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px;
+    .roster-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .roster-table thead {
+      background: #f0f0f0;
+      font-weight: 600;
+    }
+    .roster-table th, .roster-table td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    .roster-player {
+      font-weight: 600;
       background: #f9f9f9;
-      border-radius: 4px;
-      margin-bottom: 6px;
-      font-size: 14px;
-    }
-    .roster-owner {
-      font-weight: 600;
-      color: #2c3e50;
-    }
-    .roster-owner.current {
-      color: #9b59b6;
-      text-decoration: underline;
-    }
-    .roster-pet-count {
-      background: #3498db;
-      color: white;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
     }
     .pet-card {
       border: 1px solid #ddd;
@@ -177,8 +169,8 @@
         return;
       }
       app.loadLeaderboard(leagueId);
-      app.loadAllRosters(leagueId);
-      app.loadAvailablePets(leagueId);
+      app.loadLeagueRosters(leagueId);
+      app.loadLeagueAvailablePets(leagueId);
     });
   </script>
 </body>

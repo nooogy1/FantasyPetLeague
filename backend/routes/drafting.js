@@ -50,8 +50,8 @@ router.post('/', authenticateToken, async (req, res) => {
 
     // Insert roster entry
     const result = await pool.query(
-      `INSERT INTO roster_entries (user_id, league_id, pet_id)
-       VALUES ($1, $2, $3)
+      `INSERT INTO roster_entries (user_id, league_id, pet_id, drafted_at)
+       VALUES ($1, $2, $3, NOW())
        RETURNING id, drafted_at`,
       [userId, leagueId, petUUID]
     );
@@ -136,25 +136,55 @@ router.delete('/:petId/:leagueId', authenticateToken, async (req, res) => {
   }
 });
 
-// ============ GET ALL ROSTERS IN LEAGUE ============
+// ============ GET ALL ROSTERS IN LEAGUE (with pets) ============
 
 router.get('/league/:leagueId/rosters', async (req, res) => {
   try {
     const { leagueId } = req.params;
 
+    // Get all users in league with their pets
     const result = await pool.query(
       `SELECT 
-        re.user_id,
+        u.id as user_id,
         u.first_name,
         u.city,
-        COUNT(re.id) as pet_count,
-        COUNT(CASE WHEN p.status = 'removed' THEN 1 END) as adopted_count
+        json_agg(
+          json_build_object(
+            'name', p.name,
+            'age', p.age,
+            'animal_type', p.animal_type,
+            'breed', p.breed,
+            'drafted_date', re.drafted_at
+          )
+        ) FILTER (WHERE p.id IS NOT NULL) as pets
+       FROM league_members lm
+       JOIN users u ON u.id = lm.user_id
+       LEFT JOIN roster_entries re ON re.user_id = u.id AND re.league_id = $1
+       LEFT JOIN pets p ON p.id = re.pet_id
+       WHERE lm.league_id = $1
+       GROUP BY u.id, u.first_name, u.city
+       ORDER BY u.first_name ASC`,
+      [leagueId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GET ALL PETS DRAFTED IN LEAGUE ============
+
+router.get('/league/:leagueId/pets', async (req, res) => {
+  try {
+    const { leagueId } = req.params;
+
+    const result = await pool.query(
+      `SELECT DISTINCT p.pet_id, p.name
        FROM roster_entries re
-       JOIN users u ON u.id = re.user_id
        JOIN pets p ON p.id = re.pet_id
-       WHERE re.league_id = $1
-       GROUP BY re.user_id, u.first_name, u.city
-       ORDER BY adopted_count DESC, pet_count DESC`,
+       WHERE re.league_id = $1`,
       [leagueId]
     );
 

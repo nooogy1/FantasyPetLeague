@@ -138,31 +138,27 @@ async function handleLogin(event) {
   const form = event.target;
   
   const passphrase = document.getElementById('login-passphrase').value;
-  const firstNameInput = document.getElementById('login-first-name');
-  const firstName = firstNameInput?.value;
 
-  if (!passphrase || !firstName) {
-    showAlert('Please enter your name and select your passphrase', 'warning');
+  if (!passphrase) {
+    showAlert('Please enter your passphrase', 'warning');
     return;
   }
 
   try {
-    console.log('Logging in with:', { firstName });
-    
     const response = await apiCall('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ passphrase, firstName }),
+      body: JSON.stringify({ passphrase }),
     });
 
     if (!response || !response.token) {
-      showAlert('Login failed. Please check your name and passphrase.', 'danger');
+      showAlert('Login failed. Invalid passphrase.', 'danger');
       return;
     }
 
     setToken(response.token);
     setUser(response.user);
     
-    showAlert(`Welcome back, ${firstName}!`, 'success');
+    showAlert(`Welcome back!`, 'success');
     
     if (response.user.is_admin) {
       setTimeout(() => {
@@ -196,41 +192,70 @@ function checkAuth() {
 
 // ===== Leagues =====
 
-async function loadLeagues() {
+async function loadUserLeagues() {
   try {
-    console.log('Loading leagues...');
     const leagues = await apiCall('/api/leagues');
     
-    if (!leagues) {
-      console.warn('No leagues response');
-      return;
-    }
+    if (!leagues) return;
     
-    const container = document.getElementById('leagues-list');
-    if (!container) {
-      console.warn('No leagues-list container');
-      return;
-    }
-    
+    const container = document.getElementById('your-leagues-list');
+    if (!container) return;
+
     if (leagues.length === 0) {
-      container.innerHTML = '<p>No leagues yet. Create one to get started!</p>';
+      container.innerHTML = '<p>You are not in any leagues yet. Join one or create a new league!</p>';
       return;
     }
 
     container.innerHTML = leagues.map(league => `
-      <div class="card">
-        <div class="card-header">
-          <h3>${league.name}</h3>
-          <button class="btn btn-primary btn-small" onclick="app.viewLeague('${league.id}')">View</button>
-        </div>
-        <div class="card-body">
-          <p>Created: ${new Date(league.created_at).toLocaleDateString()}</p>
-        </div>
+      <div class="league-entry">
+        <div class="league-name">${league.name}</div>
+        <button class="btn btn-primary btn-small" onclick="app.viewLeague('${league.id}')">View</button>
       </div>
     `).join('');
   } catch (error) {
-    console.error('Error loading leagues:', error);
+    console.error('Error loading user leagues:', error);
     showAlert('Error loading leagues: ' + error.message, 'danger');
+  }
+}
+
+async function loadAvailableLeagues() {
+  try {
+    const response = await apiCall('/api/leagues/available');
+    
+    if (!response) return;
+    
+    const container = document.getElementById('available-leagues-list');
+    if (!container) return;
+
+    if (response.length === 0) {
+      container.innerHTML = '<p>No additional leagues available.</p>';
+      return;
+    }
+
+    container.innerHTML = response.map(league => `
+      <div class="league-entry">
+        <div class="league-name">${league.name}</div>
+        <button class="btn btn-success btn-small" onclick="app.joinLeague('${league.id}')">Join</button>
+      </div>
+    `).join('');
+  } catch (error) {
+    console.error('Error loading available leagues:', error);
+  }
+}
+
+async function joinLeague(leagueId) {
+  try {
+    const result = await apiCall(`/api/leagues/${leagueId}/join`, {
+      method: 'POST',
+    });
+
+    if (!result) return;
+
+    showAlert('Successfully joined league!', 'success');
+    location.reload();
+  } catch (error) {
+    console.error('Error joining league:', error);
+    showAlert('Error joining league: ' + error.message, 'danger');
   }
 }
 
@@ -270,50 +295,20 @@ function viewLeague(leagueId) {
 
 // ===== Pets =====
 
-async function loadAvailablePets(leagueId) {
-  try {
-    const pets = await apiCall('/api/pets');
-    
-    if (!pets) return;
-    
-    const container = document.getElementById('pets-list');
-    if (!container) return;
-
-    if (pets.length === 0) {
-      container.innerHTML = '<p>No pets available.</p>';
-      return;
-    }
-
-    container.innerHTML = pets.map(pet => `
-      <div class="pet-card">
-        <div class="pet-card-header">
-          <h3>${pet.name}</h3>
-          <div class="pet-card-breed">${pet.breed}</div>
-        </div>
-        <div class="pet-card-body">
-          <div class="pet-info">
-            <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
-            <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
-            <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
-            <dt>Source:</dt><dd><span class="badge">${pet.source}</span></dd>
-          </div>
-          ${leagueId ? `<button class="btn btn-primary btn-block" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft</button>` : ''}
-        </div>
-      </div>
-    `).join('');
-  } catch (error) {
-    console.error('Error loading pets:', error);
-    showAlert('Error loading pets: ' + error.message, 'danger');
-  }
+function calculateDaysSince(date) {
+  const now = new Date();
+  const then = new Date(date);
+  const diff = now - then;
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
 }
 
-async function loadPets() {
+async function loadAllPets() {
   try {
     const pets = await apiCall('/api/pets');
     
     if (!pets) return;
     
-    const container = document.getElementById('pets-list');
+    const container = document.getElementById('all-pets-list');
     if (!container) return;
 
     if (pets.length === 0) {
@@ -321,22 +316,69 @@ async function loadPets() {
       return;
     }
 
-    container.innerHTML = pets.map(pet => `
-      <div class="pet-card">
-        <div class="pet-card-header">
-          <h3>${pet.name}</h3>
-          <div class="pet-card-breed">${pet.breed}</div>
-        </div>
-        <div class="pet-card-body">
-          <div class="pet-info">
-            <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
-            <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
-            <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
-            <dt>Source:</dt><dd><span class="badge">${pet.source}</span></dd>
+    container.innerHTML = pets.map(pet => {
+      const daysInShelter = calculateDaysSince(pet.first_seen);
+      return `
+        <div class="pet-card">
+          <div class="pet-card-header">
+            <h3>${pet.name}</h3>
+            <div class="pet-card-breed">${pet.breed}</div>
+          </div>
+          <div class="pet-card-body">
+            <div class="pet-info">
+              <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
+              <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
+              <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
+              <dt>Days in Shelter:</dt><dd>${daysInShelter}</dd>
+            </div>
           </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error loading pets:', error);
+    showAlert('Error loading pets: ' + error.message, 'danger');
+  }
+}
+
+async function loadLeagueAvailablePets(leagueId) {
+  try {
+    const allPets = await apiCall('/api/pets');
+    const leaguePets = await apiCall(`/api/drafting/league/${leagueId}/pets`);
+    
+    if (!allPets) return;
+    
+    const container = document.getElementById('pets-list');
+    if (!container) return;
+
+    const draftedPetIds = new Set(leaguePets?.map(p => p.pet_id) || []);
+    const availablePets = allPets.filter(p => !draftedPetIds.has(p.pet_id));
+
+    if (availablePets.length === 0) {
+      container.innerHTML = '<p>No available pets in this league.</p>';
+      return;
+    }
+
+    container.innerHTML = availablePets.map(pet => {
+      const daysInShelter = calculateDaysSince(pet.first_seen);
+      return `
+        <div class="pet-card">
+          <div class="pet-card-header">
+            <h3>${pet.name}</h3>
+            <div class="pet-card-breed">${pet.breed}</div>
+          </div>
+          <div class="pet-card-body">
+            <div class="pet-info">
+              <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
+              <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
+              <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
+              <dt>Days in Shelter:</dt><dd>${daysInShelter}</dd>
+            </div>
+            <button class="btn btn-primary btn-block" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft</button>
+          </div>
+        </div>
+      `;
+    }).join('');
   } catch (error) {
     console.error('Error loading pets:', error);
     showAlert('Error loading pets: ' + error.message, 'danger');
@@ -365,7 +407,7 @@ async function draftPet(petId, leagueId) {
   }
 }
 
-async function loadAllRosters(leagueId) {
+async function loadLeagueRosters(leagueId) {
   try {
     const rosters = await apiCall(`/api/drafting/league/${leagueId}/rosters`);
     
@@ -374,26 +416,36 @@ async function loadAllRosters(leagueId) {
     const container = document.getElementById('rosters-list');
     if (!container) return;
 
-    const user = getUser();
-    const currentUserId = user?.userId;
-
-    if (rosters.length === 0) {
-      container.innerHTML = '<p>No rosters in this league yet.</p>';
+    if (rosters.length === 0 || !rosters[0].pets) {
+      container.innerHTML = '<p>No rosters yet.</p>';
       return;
     }
 
-    container.innerHTML = rosters.map(roster => {
-      const isCurrent = roster.user_id === currentUserId;
-      return `
-        <div class="roster-entry">
-          <div class="roster-owner ${isCurrent ? 'current' : ''}">
-            ${roster.first_name || 'Anonymous'}
-            ${isCurrent ? ' (You)' : ''}
-          </div>
-          <div class="roster-pet-count">${roster.pet_count || 0} pets</div>
-        </div>
-      `;
-    }).join('');
+    let html = '<table class="roster-table"><thead><tr><th>Name</th><th>Age</th><th>Type</th><th>Breed</th><th>Days on Roster</th></tr></thead><tbody>';
+    
+    rosters.forEach(roster => {
+      html += `<tr class="roster-player"><td colspan="5">${roster.first_name || 'Anonymous'}</td></tr>`;
+      
+      if (roster.pets && roster.pets.length > 0) {
+        roster.pets.forEach(pet => {
+          const daysOnRoster = calculateDaysSince(pet.drafted_date);
+          html += `
+            <tr>
+              <td style="padding-left: 24px;">${pet.name}</td>
+              <td>${pet.age || 'N/A'}</td>
+              <td>${pet.animal_type}</td>
+              <td>${pet.breed}</td>
+              <td>${daysOnRoster}</td>
+            </tr>
+          `;
+        });
+      } else {
+        html += '<tr><td colspan="5" style="padding-left: 24px; font-style: italic;">No pets drafted</td></tr>';
+      }
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
   } catch (error) {
     console.error('Error loading rosters:', error);
     showAlert('Error loading rosters: ' + error.message, 'danger');
@@ -566,17 +618,19 @@ window.app = {
   checkAuth,
   
   // League functions
-  loadLeagues,
+  loadUserLeagues,
+  loadAvailableLeagues,
   createLeague,
+  joinLeague,
   viewLeague,
   
   // Pet functions
-  loadAvailablePets,
-  loadPets,
+  loadAllPets,
+  loadLeagueAvailablePets,
   draftPet,
   
   // Roster functions
-  loadAllRosters,
+  loadLeagueRosters,
   
   // Leaderboard functions
   loadLeaderboard,

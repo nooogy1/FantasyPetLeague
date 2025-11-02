@@ -43,6 +43,12 @@ router.post('/', authenticateToken, async (req, res) => {
       [name, userId]
     );
 
+    // Auto-add creator to league
+    await pool.query(
+      `INSERT INTO league_members (user_id, league_id) VALUES ($1, $2)`,
+      [userId, result.rows[0].id]
+    );
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -50,15 +56,78 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// ============ GET ALL LEAGUES ============
+// ============ GET USER'S LEAGUES ============
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
+    const userId = req.user.userId;
+
     const result = await pool.query(
-      `SELECT id, name, owner_id, created_at FROM leagues`
+      `SELECT DISTINCT l.id, l.name, l.owner_id, l.created_at
+       FROM leagues l
+       JOIN league_members lm ON lm.league_id = l.id
+       WHERE lm.user_id = $1
+       ORDER BY l.created_at DESC`,
+      [userId]
     );
 
     res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ GET AVAILABLE LEAGUES ============
+
+router.get('/available/list', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const result = await pool.query(
+      `SELECT l.id, l.name, l.owner_id, l.created_at
+       FROM leagues l
+       WHERE l.id NOT IN (
+         SELECT league_id FROM league_members WHERE user_id = $1
+       )
+       ORDER BY l.created_at DESC`,
+      [userId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ JOIN LEAGUE ============
+
+router.post('/:leagueId/join', authenticateToken, async (req, res) => {
+  try {
+    const { leagueId } = req.params;
+    const userId = req.user.userId;
+
+    // Check if league exists
+    const leagueCheck = await pool.query(
+      `SELECT id FROM leagues WHERE id = $1`,
+      [leagueId]
+    );
+
+    if (leagueCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'League not found' });
+    }
+
+    // Add user to league
+    const result = await pool.query(
+      `INSERT INTO league_members (user_id, league_id)
+       VALUES ($1, $2)
+       ON CONFLICT DO NOTHING
+       RETURNING user_id, league_id`,
+      [userId, leagueId]
+    );
+
+    res.json({ success: true, message: 'Joined league' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -167,8 +236,8 @@ router.get('/:leagueId/members', authenticateToken, async (req, res) => {
     const result = await pool.query(
       `SELECT DISTINCT u.id, u.first_name, u.city
        FROM users u
-       JOIN roster_entries re ON re.user_id = u.id
-       WHERE re.league_id = $1
+       JOIN league_members lm ON lm.user_id = u.id
+       WHERE lm.league_id = $1
        ORDER BY u.first_name ASC`,
       [leagueId]
     );
