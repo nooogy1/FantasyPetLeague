@@ -1,15 +1,6 @@
 [build]
 builder = "nixpacks"
-nixpkgsVersion = "nixpkgs-unstable"
-
-[build.nixpacks]
-python = "3.11"
 
 [deploy]
-startCommand = "npm start"
+startCommand = "python3 scraper.py"
 restartPolicyType = "on_failure"
-
-[[crons]]
-name = "daily-scraper"
-command = "python3 scraper/daily_scraper.py"
-schedule = "0 2 * * *"
