@@ -79,6 +79,75 @@
       padding: 8px;
       font-size: 12px;
     }
+    
+    /* Debug Panel */
+    .debug-panel {
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 12px;
+      margin-top: 20px;
+      font-size: 12px;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .debug-panel h4 {
+      margin: 0 0 8px 0;
+      font-size: 12px;
+      color: #333;
+    }
+    
+    .debug-log {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      padding: 8px;
+      line-height: 1.4;
+      color: #333;
+    }
+    
+    .debug-log-entry {
+      margin-bottom: 4px;
+      padding: 4px;
+      border-radius: 2px;
+    }
+    
+    .debug-log-entry.info {
+      background: #d6eaf8;
+      color: #1e3a8a;
+    }
+    
+    .debug-log-entry.error {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+    
+    .debug-log-entry.success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+    
+    .debug-log-entry.warning {
+      background: #feebc8;
+      color: #7c2d12;
+    }
+    
+    .debug-toggle {
+      margin-top: 12px;
+      padding: 6px 12px;
+      font-size: 11px;
+      background: #666;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    
+    .debug-toggle:hover {
+      background: #444;
+    }
   </style>
 </head>
 <body data-page="login">
@@ -97,7 +166,7 @@
       </div>
 
       <!-- Login Form -->
-      <form id="login-form" class="auth-form active" onsubmit="app.handleLogin(event)">
+      <form id="login-form" class="auth-form active" onsubmit="handleLoginWithDebug(event)">
         <div class="passphrase-generator">
           <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50;">Select Your Passphrase</p>
           
@@ -135,7 +204,7 @@
       </form>
 
       <!-- Signup Form -->
-      <form id="signup-form" class="auth-form" onsubmit="app.handleSignup(event)">
+      <form id="signup-form" class="auth-form" onsubmit="handleSignupWithDebug(event)">
         <div class="form-group">
           <label for="signup-first-name">Your Name</label>
           <input 
@@ -196,6 +265,13 @@
         <button type="submit" class="btn btn-primary btn-block">Create Account</button>
       </form>
 
+      <!-- Debug Panel -->
+      <div class="debug-panel">
+        <h4>🔍 Debug Console</h4>
+        <div class="debug-log" id="debug-log"></div>
+        <button class="debug-toggle" onclick="clearDebugLog()">Clear Log</button>
+      </div>
+
       <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1; text-align: center; color: #7f8c8d; font-size: 14px;">
         <p><strong>How it works:</strong></p>
         <p>1. Create an account with your name and a 3-word passphrase</p>
@@ -207,30 +283,247 @@
     </div>
   </div>
 
-  <script src="/frontend/js/app.js"></script>
   <script>
-    // Load wordlists from API on page load
+    // ===== Debug Logging System =====
+    
+    const debugLogs = [];
+    const MAX_LOGS = 50;
+
+    function log(type, message, data = null) {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = { type, message, data, timestamp };
+      debugLogs.push(logEntry);
+      
+      if (debugLogs.length > MAX_LOGS) {
+        debugLogs.shift();
+      }
+
+      // Console log
+      console.log(`[${type.toUpperCase()}] ${message}`, data || '');
+
+      // UI log
+      updateDebugUI();
+    }
+
+    function updateDebugUI() {
+      const debugLog = document.getElementById('debug-log');
+      debugLog.innerHTML = debugLogs.map(entry => {
+        let emoji = '📝';
+        if (entry.type === 'error') emoji = '❌';
+        else if (entry.type === 'success') emoji = '✅';
+        else if (entry.type === 'warning') emoji = '⚠️';
+
+        let dataStr = '';
+        if (entry.data) {
+          dataStr = `<br><small>${JSON.stringify(entry.data).slice(0, 100)}...</small>`;
+        }
+
+        return `<div class="debug-log-entry ${entry.type}">
+          ${emoji} [${entry.timestamp}] ${entry.message}${dataStr}
+        </div>`;
+      }).join('');
+
+      // Auto-scroll to bottom
+      debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
+    function clearDebugLog() {
+      debugLogs.length = 0;
+      updateDebugUI();
+      log('info', 'Debug log cleared');
+    }
+
+    // ===== API Wrapper with Logging =====
+
+    async function apiCallWithLogging(endpoint, options = {}) {
+      log('info', `API Request: ${options.method || 'GET'} ${endpoint}`);
+
+      const token = localStorage.getItem('auth_token');
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        log('info', 'Token attached to request');
+      } else {
+        log('warning', 'No token in localStorage');
+      }
+
+      try {
+        const response = await fetch(endpoint, {
+          ...options,
+          headers,
+        });
+
+        log('info', `API Response: ${response.status}`, { status: response.status, ok: response.ok });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          log('error', `API Error: ${response.status}`, errorData);
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        log('success', 'API Response received', { hasToken: !!data.token, hasUser: !!data.user });
+        return data;
+      } catch (error) {
+        log('error', 'API Call Failed', { message: error.message, endpoint });
+        throw error;
+      }
+    }
+
+    // ===== Auth Functions with Logging =====
+
+    async function handleLoginWithDebug(event) {
+      event.preventDefault();
+      log('info', '=== LOGIN ATTEMPT STARTED ===');
+
+      const passphrase = document.getElementById('login-passphrase').value;
+      const firstName = document.getElementById('login-prefix-select').value 
+        ? 'Custom' 
+        : localStorage.getItem('login_first_name') || 'Unknown';
+
+      log('info', 'Form data collected', { passphrase: passphrase ? '***hidden***' : 'empty', firstName });
+
+      if (!passphrase) {
+        log('error', 'Passphrase is empty!');
+        alert('Please select a passphrase');
+        return;
+      }
+
+      try {
+        log('info', 'Sending login request to /api/auth/login');
+        
+        const response = await apiCallWithLogging('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({ passphrase, firstName }),
+        });
+
+        log('info', 'Login response received');
+
+        if (!response.token) {
+          log('error', 'No token in response', response);
+          alert('Login failed: No token received');
+          return;
+        }
+
+        log('success', 'Token received from server');
+
+        // Store token
+        localStorage.setItem('auth_token', response.token);
+        log('info', 'Token stored in localStorage');
+
+        // Store user data
+        if (response.user) {
+          localStorage.setItem('user_data', JSON.stringify(response.user));
+          log('info', 'User data stored', { id: response.user.id, name: response.user.first_name });
+        }
+
+        log('success', 'Authentication successful!');
+        log('info', 'Redirecting to dashboard...');
+
+        alert('✅ Login successful!');
+        
+        setTimeout(() => {
+          if (response.user.is_admin) {
+            window.location.href = '/admin-dashboard';
+          } else {
+            window.location.href = '/dashboard.html';
+          }
+        }, 1000);
+
+      } catch (error) {
+        log('error', 'Login failed', { message: error.message });
+        alert(`❌ Login failed: ${error.message}`);
+      }
+    }
+
+    async function handleSignupWithDebug(event) {
+      event.preventDefault();
+      log('info', '=== SIGNUP ATTEMPT STARTED ===');
+
+      const firstName = document.getElementById('signup-first-name').value;
+      const city = document.getElementById('signup-city').value;
+      const passphrase = document.getElementById('signup-passphrase').value;
+
+      log('info', 'Form data collected', { firstName, city, passphrase: passphrase ? '***hidden***' : 'empty' });
+
+      if (!passphrase || !firstName) {
+        log('error', 'Missing required fields', { firstName: !!firstName, passphrase: !!passphrase });
+        alert('Please enter your name and select a passphrase');
+        return;
+      }
+
+      try {
+        log('info', 'Sending signup request to /api/auth/signup');
+
+        const response = await apiCallWithLogging('/api/auth/signup', {
+          method: 'POST',
+          body: JSON.stringify({ passphrase, firstName, city }),
+        });
+
+        log('info', 'Signup response received');
+
+        if (!response.token) {
+          log('error', 'No token in response', response);
+          alert('Signup failed: No token received');
+          return;
+        }
+
+        log('success', 'Account created and token received');
+
+        // Store token
+        localStorage.setItem('auth_token', response.token);
+        log('info', 'Token stored in localStorage');
+
+        // Store user data
+        if (response.user) {
+          localStorage.setItem('user_data', JSON.stringify(response.user));
+          log('info', 'User data stored', { id: response.user.id, name: response.user.first_name });
+        }
+
+        log('success', 'Registration successful!');
+        log('info', 'Redirecting to dashboard...');
+
+        alert(`✅ Welcome ${firstName}!`);
+
+        setTimeout(() => {
+          window.location.href = '/dashboard.html';
+        }, 1000);
+
+      } catch (error) {
+        log('error', 'Signup failed', { message: error.message });
+        alert(`❌ Signup failed: ${error.message}`);
+      }
+    }
+
+    // ===== Utility Functions =====
+
     async function loadWordlists() {
+      log('info', 'Loading wordlists from /api/wordlist');
+      
       try {
         const response = await fetch('/api/wordlist');
-        if (!response.ok) throw new Error('Failed to load wordlists');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
+        log('success', `Wordlists loaded: ${data.adverbs.length} adverbs, ${data.adjectives.length} adjectives, ${data.breeds.length} breeds`);
         
-        // Populate login selects
         populateSelect('login-prefix-select', data.adverbs);
         populateSelect('login-adjective-select', data.adjectives);
         populateSelect('login-breed-select', data.breeds);
         
-        // Populate signup selects
         populateSelect('prefix-select', data.adverbs);
         populateSelect('adjective-select', data.adjectives);
         populateSelect('breed-select', data.breeds);
       } catch (error) {
-        console.error('Error loading wordlists:', error);
+        log('error', 'Failed to load wordlists', { message: error.message });
+        alert('Could not load wordlists. Please refresh the page.');
       }
     }
-    
+
     function populateSelect(selectId, words) {
       const select = document.getElementById(selectId);
       select.innerHTML = '<option value="">Select...</option>';
@@ -241,9 +534,13 @@
         option.textContent = word;
         select.appendChild(option);
       });
+
+      log('info', `Populated ${selectId} with ${words.length} options`);
     }
-    
+
     function switchAuthTab(tab) {
+      log('info', `Switching to ${tab} tab`);
+      
       document.querySelectorAll('.auth-form').forEach(form => {
         form.classList.remove('active');
       });
@@ -272,6 +569,7 @@
         display.textContent = passphrase;
         display.classList.remove('empty');
         hiddenInput.value = passphrase;
+        log('info', 'Login passphrase selected', { passphrase });
       } else {
         display.textContent = 'select words above';
         display.classList.add('empty');
@@ -291,6 +589,7 @@
         display.textContent = passphrase;
         display.classList.remove('empty');
         hiddenInput.value = passphrase;
+        log('info', 'Signup passphrase created', { passphrase });
       } else {
         display.textContent = 'select words above';
         display.classList.add('empty');
@@ -302,6 +601,7 @@
       const passphrase = document.getElementById('passphrase-display').textContent;
       if (passphrase && passphrase !== 'select words above') {
         navigator.clipboard.writeText(passphrase).then(() => {
+          log('success', 'Passphrase copied to clipboard', { passphrase });
           const btn = event.target;
           const original = btn.textContent;
           btn.textContent = '✓ Copied!';
@@ -312,13 +612,20 @@
       }
     }
 
+    // ===== Page Initialization =====
+
     document.addEventListener('DOMContentLoaded', () => {
+      log('info', 'Page loaded');
+      log('info', 'Checking for existing token...');
+
       const token = localStorage.getItem('auth_token');
       if (token) {
+        log('info', 'Token found in localStorage, redirecting to dashboard');
         window.location.href = '/dashboard.html';
+        return;
       }
-      
-      // Load wordlists from database
+
+      log('info', 'No token found, loading wordlists...');
       loadWordlists();
     });
   </script>
