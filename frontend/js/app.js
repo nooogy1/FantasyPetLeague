@@ -1,4 +1,4 @@
-// frontend/js/app.js - Main frontend application logic (Scraper Removed)
+// frontend/js/app.js - Main frontend application logic with debug logging
 
 // ===== Configuration =====
 
@@ -42,7 +42,7 @@ async function apiCall(endpoint, options = {}) {
   }
 
   try {
-    console.log(`API Call: ${options.method || 'GET'} ${endpoint}`);
+    console.log(`[API] ${options.method || 'GET'} ${endpoint}`);
     
     const response = await fetch(`${API_BASE}${endpoint}`, {
       ...options,
@@ -50,7 +50,7 @@ async function apiCall(endpoint, options = {}) {
     });
 
     if ((response.status === 401 || response.status === 403) && endpoint.includes('/auth')) {
-      console.warn('Auth error on /auth endpoint, clearing localStorage');
+      console.warn('Auth error - clearing session');
       clearAuth();
       window.location.href = '/index.html?error=auth';
       return null;
@@ -58,20 +58,20 @@ async function apiCall(endpoint, options = {}) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `API Error: ${response.status}`);
+      throw new Error(errorData.error || `HTTP ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('API Response:', data);
+    console.log('[API] Response:', data);
     return data;
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('[API Error]:', error.message);
     throw error;
   }
 }
 
 function showAlert(message, type = 'info') {
-  console.log(`Alert [${type}]: ${message}`);
+  console.log(`[Alert ${type}]: ${message}`);
   
   const alertDiv = document.createElement('div');
   alertDiv.className = `alert alert-${type}`;
@@ -126,7 +126,7 @@ async function handleSignup(event) {
     console.error('Signup error:', error);
     
     if (error.message.includes('already exists')) {
-      showAlert('That name is already taken. Try a different one.', 'danger');
+      showAlert('That passphrase is already taken. Try a different one.', 'danger');
     } else {
       showAlert(`Error: ${error.message}`, 'danger');
     }
@@ -194,12 +194,21 @@ function checkAuth() {
 
 async function loadUserLeagues() {
   try {
+    console.log('[LEAGUES] Loading user leagues...');
     const leagues = await apiCall('/api/leagues');
     
-    if (!leagues) return;
+    if (!leagues) {
+      console.log('[LEAGUES] No response from API');
+      return;
+    }
+    
+    console.log('[LEAGUES] Got response:', leagues);
     
     const container = document.getElementById('your-leagues-list');
-    if (!container) return;
+    if (!container) {
+      console.warn('[LEAGUES] Container not found');
+      return;
+    }
 
     if (leagues.length === 0) {
       container.innerHTML = '<p>You are not in any leagues yet. Join one or create a new league!</p>';
@@ -212,49 +221,83 @@ async function loadUserLeagues() {
         <button class="btn btn-primary btn-small" onclick="app.viewLeague('${league.id}')">View</button>
       </div>
     `).join('');
+    
+    console.log('[LEAGUES] Rendered', leagues.length, 'leagues');
   } catch (error) {
-    console.error('Error loading user leagues:', error);
+    console.error('[LEAGUES] Error:', error);
+    const container = document.getElementById('your-leagues-list');
+    if (container) {
+      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
     showAlert('Error loading leagues: ' + error.message, 'danger');
   }
 }
 
 async function loadAvailableLeagues() {
   try {
-    const response = await apiCall('/api/leagues/available');
+    console.log('[AVAILABLE] Loading available leagues...');
     
-    if (!response) return;
+    // FIXED: Corrected endpoint path
+    const response = await apiCall('/api/leagues/available/list');
+    
+    console.log('[AVAILABLE] Got response:', response);
+    
+    if (!response) {
+      console.log('[AVAILABLE] No response from API');
+      return;
+    }
     
     const container = document.getElementById('available-leagues-list');
-    if (!container) return;
-
-    if (response.length === 0) {
-      container.innerHTML = '<p>No additional leagues available.</p>';
+    if (!container) {
+      console.warn('[AVAILABLE] Container not found');
       return;
     }
 
-    container.innerHTML = response.map(league => `
+    // Handle both array response and object response with data property
+    const leagues = Array.isArray(response) ? response : response.data || response.leagues || [];
+
+    if (leagues.length === 0) {
+      container.innerHTML = '<p>No additional leagues available. Create one to get started!</p>';
+      console.log('[AVAILABLE] No leagues to display');
+      return;
+    }
+
+    container.innerHTML = leagues.map(league => `
       <div class="league-entry">
         <div class="league-name">${league.name}</div>
         <button class="btn btn-success btn-small" onclick="app.joinLeague('${league.id}')">Join</button>
       </div>
     `).join('');
+    
+    console.log('[AVAILABLE] Rendered', leagues.length, 'available leagues');
   } catch (error) {
-    console.error('Error loading available leagues:', error);
+    console.error('[AVAILABLE] Error:', error);
+    const container = document.getElementById('available-leagues-list');
+    if (container) {
+      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
+    showAlert('Error loading available leagues: ' + error.message, 'danger');
   }
 }
 
 async function joinLeague(leagueId) {
   try {
+    console.log('[JOIN] Attempting to join league:', leagueId);
+    
     const result = await apiCall(`/api/leagues/${leagueId}/join`, {
       method: 'POST',
     });
 
     if (!result) return;
 
+    console.log('[JOIN] Success');
     showAlert('Successfully joined league!', 'success');
-    location.reload();
+    
+    setTimeout(() => {
+      location.reload();
+    }, 1000);
   } catch (error) {
-    console.error('Error joining league:', error);
+    console.error('[JOIN] Error:', error);
     showAlert('Error joining league: ' + error.message, 'danger');
   }
 }
@@ -270,7 +313,7 @@ async function createLeague(event) {
   }
 
   try {
-    console.log('Creating league:', name);
+    console.log('[CREATE] Creating league:', name);
     
     const result = await apiCall('/api/leagues', {
       method: 'POST',
@@ -279,17 +322,21 @@ async function createLeague(event) {
 
     if (!result) return;
 
+    console.log('[CREATE] Success');
     showAlert('League created successfully!', 'success');
     form.reset();
-    loadLeagues();
+    
+    setTimeout(() => {
+      location.reload();
+    }, 1000);
   } catch (error) {
-    console.error('Error creating league:', error);
+    console.error('[CREATE] Error:', error);
     showAlert('Error creating league: ' + error.message, 'danger');
   }
 }
 
 function viewLeague(leagueId) {
-  console.log('Viewing league:', leagueId);
+  console.log('[VIEW] Viewing league:', leagueId);
   window.location.href = `/league.html?id=${leagueId}`;
 }
 
@@ -304,19 +351,26 @@ function calculateDaysSince(date) {
 
 async function loadAllPets() {
   try {
+    console.log('[PETS] Loading all pets...');
+    
     const pets = await apiCall('/api/pets');
+    
+    console.log('[PETS] Got response with', pets?.length, 'pets');
     
     if (!pets) return;
     
     const container = document.getElementById('all-pets-list');
-    if (!container) return;
-
-    if (pets.length === 0) {
-      container.innerHTML = '<p>No pets available yet.</p>';
+    if (!container) {
+      console.warn('[PETS] Container not found');
       return;
     }
 
-    container.innerHTML = pets.map(pet => {
+    if (pets.length === 0) {
+      container.innerHTML = '<p>No pets available yet. Check back soon!</p>';
+      return;
+    }
+
+    container.innerHTML = pets.slice(0, 12).map(pet => {
       const daysInShelter = calculateDaysSince(pet.first_seen);
       return `
         <div class="pet-card">
@@ -329,14 +383,20 @@ async function loadAllPets() {
               <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
               <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
               <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
-              <dt>Days in Shelter:</dt><dd>${daysInShelter}</dd>
+              <dt>Days:</dt><dd>${daysInShelter}</dd>
             </div>
           </div>
         </div>
       `;
     }).join('');
+    
+    console.log('[PETS] Rendered', Math.min(pets.length, 12), 'pets');
   } catch (error) {
-    console.error('Error loading pets:', error);
+    console.error('[PETS] Error:', error);
+    const container = document.getElementById('all-pets-list');
+    if (container) {
+      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
     showAlert('Error loading pets: ' + error.message, 'danger');
   }
 }
@@ -372,7 +432,7 @@ async function loadLeagueAvailablePets(leagueId) {
               <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
               <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
               <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
-              <dt>Days in Shelter:</dt><dd>${daysInShelter}</dd>
+              <dt>Days:</dt><dd>${daysInShelter}</dd>
             </div>
             <button class="btn btn-primary btn-block" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft</button>
           </div>
@@ -380,7 +440,7 @@ async function loadLeagueAvailablePets(leagueId) {
       `;
     }).join('');
   } catch (error) {
-    console.error('Error loading pets:', error);
+    console.error('[LEAGUE_PETS] Error:', error);
     showAlert('Error loading pets: ' + error.message, 'danger');
   }
 }
@@ -392,6 +452,8 @@ async function draftPet(petId, leagueId) {
   }
 
   try {
+    console.log('[DRAFT] Drafting pet', petId, 'to league', leagueId);
+    
     const result = await apiCall('/api/drafting', {
       method: 'POST',
       body: JSON.stringify({ leagueId, petId }),
@@ -399,16 +461,22 @@ async function draftPet(petId, leagueId) {
 
     if (!result) return;
 
+    console.log('[DRAFT] Success');
     showAlert('Pet drafted successfully!', 'success');
-    location.reload();
+    
+    setTimeout(() => {
+      location.reload();
+    }, 1000);
   } catch (error) {
-    console.error('Error drafting pet:', error);
+    console.error('[DRAFT] Error:', error);
     showAlert('Error drafting pet: ' + error.message, 'danger');
   }
 }
 
 async function loadLeagueRosters(leagueId) {
   try {
+    console.log('[ROSTERS] Loading rosters for league:', leagueId);
+    
     const rosters = await apiCall(`/api/drafting/league/${leagueId}/rosters`);
     
     if (!rosters) return;
@@ -421,34 +489,69 @@ async function loadLeagueRosters(leagueId) {
       return;
     }
 
-    let html = '<table class="roster-table"><thead><tr><th>Name</th><th>Age</th><th>Type</th><th>Breed</th><th>Days on Roster</th></tr></thead><tbody>';
+    let html = '<table class="table"><thead><tr><th>Name</th><th>Pets</th><th>Points</th></tr></thead><tbody>';
     
     rosters.forEach(roster => {
-      html += `<tr class="roster-player"><td colspan="5">${roster.first_name || 'Anonymous'}</td></tr>`;
-      
-      if (roster.pets && roster.pets.length > 0) {
-        roster.pets.forEach(pet => {
-          const daysOnRoster = calculateDaysSince(pet.drafted_date);
-          html += `
-            <tr>
-              <td style="padding-left: 24px;">${pet.name}</td>
-              <td>${pet.age || 'N/A'}</td>
-              <td>${pet.animal_type}</td>
-              <td>${pet.breed}</td>
-              <td>${daysOnRoster}</td>
-            </tr>
-          `;
-        });
-      } else {
-        html += '<tr><td colspan="5" style="padding-left: 24px; font-style: italic;">No pets drafted</td></tr>';
-      }
+      const petCount = (roster.pets && roster.pets.length) || 0;
+      html += `
+        <tr>
+          <td>${roster.first_name || 'Anonymous'}</td>
+          <td>${petCount}</td>
+          <td>-</td>
+        </tr>
+      `;
     });
 
     html += '</tbody></table>';
     container.innerHTML = html;
+    
+    console.log('[ROSTERS] Rendered', rosters.length, 'rosters');
   } catch (error) {
-    console.error('Error loading rosters:', error);
+    console.error('[ROSTERS] Error:', error);
     showAlert('Error loading rosters: ' + error.message, 'danger');
+  }
+}
+
+// ===== Leaderboard =====
+
+async function loadLeaderboard(leagueId) {
+  try {
+    console.log('[LEADERBOARD] Loading for league:', leagueId);
+    
+    const leaderboard = await apiCall(`/api/leaderboard/${leagueId}`);
+    
+    if (!leaderboard) return;
+    
+    const container = document.getElementById('leaderboard-list');
+    if (!container) return;
+
+    if (leaderboard.length === 0) {
+      container.innerHTML = '<p>No players in this league yet.</p>';
+      return;
+    }
+
+    container.innerHTML = leaderboard.map((entry, idx) => {
+      let medal = '';
+      if (idx === 0) medal = '🥇';
+      else if (idx === 1) medal = '🥈';
+      else if (idx === 2) medal = '🥉';
+
+      return `
+        <div class="leaderboard-entry">
+          <div class="leaderboard-rank">#${entry.rank} ${medal}</div>
+          <div class="leaderboard-info">
+            <div class="leaderboard-name">${entry.first_name || 'Anonymous'}</div>
+            <div class="leaderboard-city">${entry.city || 'Location unknown'}</div>
+          </div>
+          <div class="leaderboard-points">${entry.total_points} pts</div>
+        </div>
+      `;
+    }).join('');
+    
+    console.log('[LEADERBOARD] Rendered', leaderboard.length, 'entries');
+  } catch (error) {
+    console.error('[LEADERBOARD] Error:', error);
+    showAlert('Error loading leaderboard: ' + error.message, 'danger');
   }
 }
 
@@ -456,7 +559,7 @@ async function loadLeagueRosters(leagueId) {
 
 async function loadRoster(leagueId) {
   try {
-    console.log('Loading roster for league:', leagueId);
+    console.log('[ROSTER] Loading for league:', leagueId);
     
     const roster = await apiCall(`/api/drafting/${leagueId}`);
     
@@ -496,8 +599,10 @@ async function loadRoster(leagueId) {
         </tbody>
       </table>
     `;
+    
+    console.log('[ROSTER] Rendered', roster.length, 'pets');
   } catch (error) {
-    console.error('Error loading roster:', error);
+    console.error('[ROSTER] Error:', error);
     showAlert('Error loading roster: ' + error.message, 'danger');
   }
 }
@@ -506,7 +611,7 @@ async function undraftPet(petId, leagueId) {
   if (!confirm('Remove this pet from your roster?')) return;
 
   try {
-    console.log('Undrafting pet:', petId, 'from league:', leagueId);
+    console.log('[UNDRAFT] Removing pet:', petId);
     
     const result = await apiCall(`/api/drafting/${petId}/${leagueId}`, {
       method: 'DELETE',
@@ -514,130 +619,39 @@ async function undraftPet(petId, leagueId) {
 
     if (!result) return;
 
+    console.log('[UNDRAFT] Success');
     showAlert('Pet removed from roster', 'success');
     loadRoster(leagueId);
   } catch (error) {
-    console.error('Error removing pet:', error);
+    console.error('[UNDRAFT] Error:', error);
     showAlert('Error removing pet: ' + error.message, 'danger');
   }
 }
 
-// ===== Leaderboard =====
-
-async function loadLeaderboard(leagueId) {
-  try {
-    console.log('Loading leaderboard for league:', leagueId);
-    
-    const leaderboard = await apiCall(`/api/leaderboard/${leagueId}`);
-    
-    if (!leaderboard) return;
-    
-    const container = document.getElementById('leaderboard-list');
-    if (!container) return;
-
-    if (leaderboard.length === 0) {
-      container.innerHTML = '<p>No players in this league yet.</p>';
-      return;
-    }
-
-    container.innerHTML = leaderboard.map((entry, idx) => {
-      let medal = '';
-      if (idx === 0) medal = '🥇';
-      else if (idx === 1) medal = '🥈';
-      else if (idx === 2) medal = '🥉';
-
-      return `
-        <div class="leaderboard-entry">
-          <div class="leaderboard-rank ${idx === 0 ? 'first' : idx === 1 ? 'second' : idx === 2 ? 'third' : ''}">#${entry.rank} ${medal}</div>
-          <div class="leaderboard-info">
-            <div class="leaderboard-name">${entry.first_name || 'Anonymous'}</div>
-            <div class="leaderboard-city">${entry.city || 'Location unknown'}</div>
-          </div>
-          <div class="leaderboard-points">${entry.total_points} pts</div>
-        </div>
-      `;
-    }).join('');
-  } catch (error) {
-    console.error('Error loading leaderboard:', error);
-    showAlert('Error loading leaderboard: ' + error.message, 'danger');
-  }
-}
-
-// ===== Page Initialization =====
-
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('Page loaded, initializing...');
-  
-  const params = new URLSearchParams(window.location.search);
-  
-  if (params.get('login') === 'required') {
-    showAlert('Please log in to continue', 'warning');
-  }
-  
-  if (params.get('error') === 'auth') {
-    showAlert('Your session expired. Please log in again.', 'warning');
-  }
-
-  const page = document.body.getAttribute('data-page');
-  console.log('Page type:', page);
-  
-  switch (page) {
-    case 'dashboard':
-      if (checkAuth()) {
-        const user = getUser();
-        if (user) {
-          const userNameEl = document.getElementById('user-name');
-          if (userNameEl) {
-            userNameEl.textContent = user.first_name || 'Player';
-          }
-        }
-        loadLeagues();
-      }
-      break;
-      
-    case 'league':
-      if (checkAuth()) {
-        const leagueId = new URLSearchParams(window.location.search).get('id');
-        if (leagueId) {
-          console.log('Loading league view for:', leagueId);
-          loadRoster(leagueId);
-          loadLeaderboard(leagueId);
-          loadAvailablePets();
-        }
-      }
-      break;
-  }
-});
-
 // ===== Export for use in HTML =====
 window.app = {
-  // Auth functions
   handleSignup,
   handleLogin,
   handleLogout,
   checkAuth,
   
-  // League functions
   loadUserLeagues,
   loadAvailableLeagues,
   createLeague,
   joinLeague,
   viewLeague,
   
-  // Pet functions
   loadAllPets,
   loadLeagueAvailablePets,
   draftPet,
   
-  // Roster functions
   loadLeagueRosters,
   
-  // Leaderboard functions
   loadLeaderboard,
+  loadRoster,
+  undraftPet,
   
-  // Utility functions
   showAlert,
 };
 
 console.log('✓ app.js loaded and ready');
-console.log('Available functions:', Object.keys(window.app));

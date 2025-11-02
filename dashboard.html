@@ -36,13 +36,102 @@
       font-weight: 600;
       flex: 1;
     }
+
+    /* Debug Panel */
+    .debug-panel {
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 12px;
+      margin-top: 30px;
+      font-size: 11px;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .debug-panel h4 {
+      margin: 0 0 8px 0;
+      font-size: 12px;
+      color: #333;
+    }
+    
+    .debug-log {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+      padding: 8px;
+      line-height: 1.3;
+      color: #333;
+    }
+    
+    .debug-log-entry {
+      margin-bottom: 3px;
+      padding: 2px 4px;
+      border-radius: 2px;
+    }
+    
+    .debug-log-entry.info {
+      background: #d6eaf8;
+      color: #1e3a8a;
+    }
+    
+    .debug-log-entry.error {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+    
+    .debug-log-entry.success {
+      background: #c6f6d5;
+      color: #22543d;
+    }
+
+    .debug-log-entry.warning {
+      background: #feebc8;
+      color: #7c2d12;
+    }
+    
+    .debug-toggle {
+      margin-top: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      background: #666;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    
+    .debug-toggle:hover {
+      background: #444;
+    }
+
+    .loader-text {
+      text-align: center;
+      padding: 20px;
+      color: #7f8c8d;
+    }
+
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #ecf0f1;
+      border-top: 3px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body data-page="dashboard">
   <header>
     <div class="logo">🐾 Fantasy Pet League</div>
     <nav>
-      <a href="/admin-dashboard">Admin</a>
       <a href="#" onclick="app.handleLogout(); return false;">Logout</a>
     </nav>
   </header>
@@ -61,7 +150,10 @@
       </div>
       <div class="card-body">
         <div id="your-leagues-list">
-          <div class="loader"></div>
+          <div class="loader-text">
+            <div class="loader"></div>
+            <p>Loading your leagues...</p>
+          </div>
         </div>
       </div>
     </div>
@@ -69,11 +161,14 @@
     <!-- Available Leagues -->
     <div class="card">
       <div class="card-header">
-        <h2>Available Leagues</h2>
+        <h2>Available Leagues to Join</h2>
       </div>
       <div class="card-body">
         <div id="available-leagues-list">
-          <div class="loader"></div>
+          <div class="loader-text">
+            <div class="loader"></div>
+            <p>Loading available leagues...</p>
+          </div>
         </div>
       </div>
     </div>
@@ -107,20 +202,126 @@
       </div>
       <div class="card-body">
         <div id="all-pets-list">
-          <div class="loader"></div>
+          <div class="loader-text">
+            <div class="loader"></div>
+            <p>Loading pets...</p>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Debug Panel -->
+    <div class="debug-panel">
+      <h4>🔍 Debug Console</h4>
+      <div class="debug-log" id="debug-log"></div>
+      <button class="debug-toggle" onclick="clearDebugLog()">Clear Log</button>
+      <button class="debug-toggle" onclick="downloadDebugLog()">Download Log</button>
+    </div>
   </div>
 
+  <!-- Load app.js FIRST -->
   <script src="/frontend/js/app.js"></script>
+  
+  <!-- Then our dashboard-specific code -->
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      if (app.checkAuth()) {
-        app.loadUserLeagues();
-        app.loadAvailableLeagues();
-        app.loadAllPets();
+    // ===== Debug System =====
+
+    const debugLogs = [];
+    const MAX_LOGS = 60;
+
+    function logDebug(type, message, data = null) {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = { type, message, data, timestamp };
+      debugLogs.push(logEntry);
+      
+      if (debugLogs.length > MAX_LOGS) {
+        debugLogs.shift();
       }
+
+      console.log(`[${type.toUpperCase()}] ${message}`, data || '');
+      updateDebugUI();
+    }
+
+    function updateDebugUI() {
+      const debugLog = document.getElementById('debug-log');
+      if (!debugLog) return;
+      
+      debugLog.innerHTML = debugLogs.map(entry => {
+        let emoji = '📝';
+        if (entry.type === 'error') emoji = '❌';
+        else if (entry.type === 'success') emoji = '✅';
+        else if (entry.type === 'warning') emoji = '⚠️';
+
+        let dataStr = '';
+        if (entry.data) {
+          const dataJson = typeof entry.data === 'string' 
+            ? entry.data 
+            : JSON.stringify(entry.data);
+          dataStr = `<br><small>→ ${dataJson.slice(0, 120)}${dataJson.length > 120 ? '...' : ''}</small>`;
+        }
+
+        return `<div class="debug-log-entry ${entry.type}">
+          ${emoji} [${entry.timestamp}] ${entry.message}${dataStr}
+        </div>`;
+      }).join('');
+
+      debugLog.scrollTop = debugLog.scrollHeight;
+    }
+
+    function clearDebugLog() {
+      debugLogs.length = 0;
+      updateDebugUI();
+      logDebug('info', 'Debug log cleared');
+    }
+
+    function downloadDebugLog() {
+      const text = debugLogs.map(entry => 
+        `[${entry.timestamp}] [${entry.type.toUpperCase()}] ${entry.message}` + 
+        (entry.data ? ` → ${JSON.stringify(entry.data)}` : '')
+      ).join('\n');
+
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `debug-${new Date().toISOString().slice(0, 10)}.txt`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      logDebug('success', 'Debug log downloaded');
+    }
+
+    // ===== Page Initialization =====
+
+    document.addEventListener('DOMContentLoaded', () => {
+      logDebug('info', '📊 Dashboard loading...');
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        logDebug('error', 'No auth token found');
+        window.location.href = '/index.html?login=required';
+        return;
+      }
+
+      logDebug('success', 'Auth token verified');
+
+      const user = JSON.parse(localStorage.getItem('user_data') || '{}');
+      logDebug('info', `User loaded: ${user.first_name}`);
+
+      const userNameEl = document.getElementById('user-name');
+      if (userNameEl) {
+        userNameEl.textContent = user.first_name || 'Player';
+      }
+
+      // Load data with logging
+      logDebug('info', 'Fetching Your Leagues...');
+      app.loadUserLeagues();
+
+      logDebug('info', 'Fetching Available Leagues...');
+      app.loadAvailableLeagues();
+
+      logDebug('info', 'Fetching All Pets...');
+      app.loadAllPets();
     });
   </script>
 </body>
