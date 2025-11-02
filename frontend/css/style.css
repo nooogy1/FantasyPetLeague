@@ -756,3 +756,85 @@ nav a:hover {
     width: 100%;
   }
 }
+
+/* Add these CSS updates to frontend/css/style.css */
+
+/* ===== Pet Card Gradient Header ===== */
+.pet-card-header-gradient {
+  background: linear-gradient(135deg, #3498db, #9b59b6);
+  padding: 16px;
+  border-radius: 8px 8px 0 0;
+  margin: -12px -12px 12px -12px;
+}
+
+.pet-card-title h3 {
+  color: white;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  font-size: 18px;
+}
+
+.pet-card-title .pet-card-breed {
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ===== Roster Player Highlighting ===== */
+.roster-player-me {
+  background: #e8f4f8;
+  border-left-color: #27ae60;
+  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.1);
+}
+
+.roster-player-me .roster-player-name {
+  color: #27ae60;
+  font-weight: 700;
+}
+
+/* ===== Pet Card Stats ===== */
+.pet-card-stats {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #555;
+}
+
+.pet-stat {
+  display: inline-block;
+  margin-right: 12px;
+  padding-right: 12px;
+  border-right: 1px solid #ecf0f1;
+}
+
+.pet-stat:last-child {
+  border-right: none;
+}
+
+/* ===== Responsive adjustments ===== */
+@media (max-width: 768px) {
+  .pet-card-header-gradient {
+    padding: 12px;
+    margin: -12px -12px 12px -12px;
+  }
+
+  .pet-card-title h3 {
+    font-size: 16px;
+  }
+
+  .pet-card-title .pet-card-breed {
+    font-size: 12px;
+  }
+
+  .pet-stat {
+    display: block;
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+    border-right: none;
+    border-bottom: 1px solid #ecf0f1;
+  }
+
+  .pet-stat:last-child {
+    border-bottom: none;
+  }
+}

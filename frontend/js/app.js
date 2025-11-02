@@ -1,4 +1,4 @@
-// frontend/js/app.js - Main frontend application logic with pagination and enhancements
+// frontend/js/app.js - Main frontend application logic with all enhancements
 
 // ===== Configuration =====
 
@@ -6,6 +6,7 @@ const API_BASE = window.location.origin;
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'user_data';
 const PETS_PER_PAGE = 12;
+const MAX_ROSTER_SIZE = 10;
 
 // Pagination state
 let petsCurrentPage = 1;
@@ -381,7 +382,7 @@ function viewLeague(leagueId) {
 // ===== Pets =====
 
 function renderPetCard(pet) {
-  const daysInShelter = calculateDaysSince(pet.first_seen);
+  const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
   return `
     <div class="pet-card">
       <div class="pet-card-header">
@@ -393,6 +394,7 @@ function renderPetCard(pet) {
           <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
           <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
           <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
+          <dt>Source:</dt><dd>${pet.source || 'Unknown'}</dd><br>
           <dt>In Shelter:</dt><dd>${daysInShelter} days</dd>
         </div>
       </div>
@@ -533,18 +535,22 @@ async function loadLeagueAvailablePets(leagueId) {
     }
 
     container.innerHTML = availablePets.map(pet => {
-      const daysInShelter = calculateDaysSince(pet.first_seen);
+      const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
+      const source = pet.source || 'Unknown';
       return `
         <div class="pet-card">
-          <div class="pet-card-header">
-            <h3>${pet.name}</h3>
-            <div class="pet-card-breed">${pet.breed}</div>
+          <div class="pet-card-header-gradient">
+            <div class="pet-card-title">
+              <h3>${pet.name}</h3>
+              <div class="pet-card-breed">${pet.breed}</div>
+            </div>
           </div>
           <div class="pet-card-body">
             <div class="pet-card-stats">
               <span class="pet-stat"><strong>Type:</strong> ${pet.animal_type}</span>
               <span class="pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
               <span class="pet-stat"><strong>Age:</strong> ${pet.age || 'N/A'}</span>
+              <span class="pet-stat"><strong>Source:</strong> ${source}</span>
               <span class="pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
             </div>
             <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
@@ -569,7 +575,19 @@ async function draftPet(petId, leagueId) {
   }
 
   try {
-    console.log('[DRAFT] Drafting pet', petId, 'to league', leagueId);
+    // Check current roster size
+    const rosters = await apiCall(`/api/drafting/league/${leagueId}/rosters`);
+    const currentUser = getUser();
+    const userRoster = rosters?.find(r => r.user_id === currentUser.id);
+    const currentRosterSize = userRoster?.pets?.length || 0;
+
+    if (currentRosterSize >= MAX_ROSTER_SIZE) {
+      showAlert(`You have reached the maximum roster size of ${MAX_ROSTER_SIZE} pets. Please remove a pet to draft another.`, 'warning');
+      console.log('[DRAFT] Roster full:', currentRosterSize, '/', MAX_ROSTER_SIZE);
+      return;
+    }
+
+    console.log('[DRAFT] Drafting pet', petId, 'to league', leagueId, '- Roster:', currentRosterSize, '/', MAX_ROSTER_SIZE);
     
     const result = await apiCall('/api/drafting', {
       method: 'POST',
@@ -609,15 +627,27 @@ async function loadLeagueRosters(leagueId) {
       return;
     }
 
+    // Get current user ID
+    const currentUser = getUser();
+    const currentUserId = currentUser?.id;
+
+    // Sort rosters: current user first, then alphabetically
+    const sortedRosters = rosters.sort((a, b) => {
+      if (a.user_id === currentUserId) return -1;
+      if (b.user_id === currentUserId) return 1;
+      return (a.first_name || '').localeCompare(b.first_name || '');
+    });
+
     // Build roster display with player names and their pets
-    const rosterHtml = rosters.map(roster => {
+    const rosterHtml = sortedRosters.map(roster => {
       const playerName = roster.first_name || 'Anonymous';
       const pets = roster.pets || [];
+      const isCurrentUser = roster.user_id === currentUserId;
 
       if (pets.length === 0) {
         return `
-          <div class="roster-player">
-            <div class="roster-player-name">${playerName}</div>
+          <div class="roster-player ${isCurrentUser ? 'roster-player-me' : ''}">
+            <div class="roster-player-name">${playerName}${isCurrentUser ? ' (You)' : ''}</div>
             <p style="font-size: 13px; color: #7f8c8d; margin: 0;">No pets drafted yet</p>
           </div>
         `;
@@ -625,7 +655,8 @@ async function loadLeagueRosters(leagueId) {
 
       const petsHtml = pets.map(pet => {
         const daysOnRoster = calculateDaysSince(pet.drafted_date);
-        const daysInShelter = calculateDaysSince(pet.first_seen || pet.brought_to_shelter);
+        const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
+        const source = pet.source || 'Unknown';
         
         return `
           <div class="roster-pet">
@@ -634,6 +665,7 @@ async function loadLeagueRosters(leagueId) {
               <span class="roster-pet-stat"><strong>Type:</strong> ${pet.animal_type || 'N/A'}</span>
               <span class="roster-pet-stat"><strong>Breed:</strong> ${pet.breed || 'N/A'}</span>
               <span class="roster-pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+              <span class="roster-pet-stat"><strong>Source:</strong> ${source}</span>
               <span class="roster-pet-stat"><strong>On Roster:</strong> ${daysOnRoster}d</span>
               <span class="roster-pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
             </div>
@@ -642,15 +674,15 @@ async function loadLeagueRosters(leagueId) {
       }).join('');
 
       return `
-        <div class="roster-player">
-          <div class="roster-player-name">${playerName}</div>
+        <div class="roster-player ${isCurrentUser ? 'roster-player-me' : ''}">
+          <div class="roster-player-name">${playerName}${isCurrentUser ? ' (You)' : ''}</div>
           ${petsHtml}
         </div>
       `;
     }).join('');
 
     container.innerHTML = rosterHtml;
-    console.log('[ROSTERS] Rendered', rosters.length, 'rosters with pets');
+    console.log('[ROSTERS] Rendered', rosters.length, 'rosters with current user first');
   } catch (error) {
     console.error('[ROSTERS] Error:', error);
     const container = document.getElementById('rosters-list');
