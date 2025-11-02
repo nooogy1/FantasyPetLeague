@@ -5,65 +5,161 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fantasy Pet League - League</title>
   <link rel="stylesheet" href="/frontend/css/style.css">
+  <style>
+    .league-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .league-left {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .league-right {
+      display: flex;
+      flex-direction: column;
+    }
+    .leaderboard-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .leaderboard-rank {
+      font-weight: 600;
+      min-width: 40px;
+    }
+    .leaderboard-info {
+      flex: 1;
+      margin: 0 12px;
+    }
+    .leaderboard-name {
+      font-weight: 600;
+    }
+    .leaderboard-city {
+      font-size: 12px;
+      color: #7f8c8d;
+    }
+    .leaderboard-points {
+      font-weight: 600;
+      color: #9b59b6;
+    }
+    .roster-entry {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .roster-owner {
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    .roster-owner.current {
+      color: #9b59b6;
+      text-decoration: underline;
+    }
+    .roster-pet-count {
+      background: #3498db;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .pet-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .pet-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .pet-card-header h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+    .pet-card-breed {
+      font-size: 12px;
+      color: #7f8c8d;
+      margin-bottom: 8px;
+    }
+    .pet-info {
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .pet-info dt {
+      font-weight: 600;
+      display: inline;
+    }
+    .pet-info dd {
+      display: inline;
+      margin-left: 4px;
+    }
+    @media (max-width: 1024px) {
+      .league-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body data-page="league">
   <header>
     <div class="logo">🐾 Fantasy Pet League</div>
     <nav>
-      <a href="/dashboard.html">Back to Leagues</a>
+      <a href="/dashboard.html">Dashboard</a>
       <a href="#" onclick="app.handleLogout(); return false;">Logout</a>
     </nav>
   </header>
 
   <div class="container">
-    <!-- Page Header -->
-    <div class="page-header">
-      <h1>League Details</h1>
-      <p>Browse pets, manage your roster, and compete on the leaderboard</p>
-    </div>
-
-    <div class="grid grid-2">
-      <!-- Available Pets -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Available Pets</h2>
-        </div>
-        <div class="card-body">
-          <div class="form-group">
-            <input 
-              type="text" 
-              placeholder="Search pets..." 
-              id="pet-search"
-              onchange="app.loadAvailablePets({breed: this.value})"
-            >
-          </div>
-          <div id="pets-list">
-            <div class="loader"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- My Roster & Leaderboard -->
-      <div>
-        <!-- My Roster -->
+    <div class="league-container">
+      <!-- Left Sidebar -->
+      <div class="league-left">
+        <!-- Leaderboard -->
         <div class="card">
           <div class="card-header">
-            <h2>My Roster</h2>
+            <h2>Leaderboard</h2>
           </div>
           <div class="card-body">
-            <div id="roster-list">
+            <div id="leaderboard-list">
               <div class="loader"></div>
             </div>
           </div>
         </div>
 
-        <!-- Leaderboard -->
+        <!-- All Rosters -->
         <div class="card">
           <div class="card-header">
-            <h2>🏆 Leaderboard</h2>
+            <h2>All Rosters</h2>
           </div>
           <div class="card-body">
-            <div id="leaderboard-list">
+            <div id="rosters-list">
+              <div class="loader"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Side - Available Pets -->
+      <div class="league-right">
+        <div class="card">
+          <div class="card-header">
+            <h2>Available Pets</h2>
+          </div>
+          <div class="card-body">
+            <div id="pets-list">
               <div class="loader"></div>
             </div>
           </div>
@@ -73,5 +169,17 @@
   </div>
 
   <script src="/frontend/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const leagueId = new URLSearchParams(window.location.search).get('id');
+      if (!leagueId) {
+        window.location.href = '/dashboard.html';
+        return;
+      }
+      app.loadLeaderboard(leagueId);
+      app.loadAllRosters(leagueId);
+      app.loadAvailablePets(leagueId);
+    });
+  </script>
 </body>
 </html>

@@ -41,6 +41,18 @@
       <p>Draft pets, earn points, and compete on the leaderboard</p>
     </div>
 
+    <!-- Your Leagues -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Your Leagues</h2>
+      </div>
+      <div class="card-body">
+        <div id="leagues-list">
+          <div class="loader"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Create League Card -->
     <div class="card">
       <div class="card-header">
@@ -63,26 +75,13 @@
       </div>
     </div>
 
-    <!-- Scrape Pets Button -->
+    <!-- Pet Database -->
     <div class="card">
       <div class="card-header">
-        <h2>Pet Database</h2>
+        <h2>Available Pets</h2>
       </div>
       <div class="card-body">
-        <p id="scrape-status" style="margin-bottom: 12px; color: #7f8c8d;"></p>
-        <button class="btn btn-secondary btn-block" id="scrape-btn" onclick="app.triggerScrape()">
-          🔄 Refresh Pet Database
-        </button>
-      </div>
-    </div>
-
-    <!-- Leagues List -->
-    <div class="card">
-      <div class="card-header">
-        <h2>Your Leagues</h2>
-      </div>
-      <div class="card-body">
-        <div id="leagues-list">
+        <div id="pets-list">
           <div class="loader"></div>
         </div>
       </div>
@@ -91,10 +90,10 @@
 
   <script src="/frontend/js/app.js"></script>
   <script>
-    // Make sure everything initializes after scripts load
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('Dashboard initialized');
-      console.log('window.app available:', !!window.app);
+      if (app.checkAuth()) {
+        app.loadPets();
+      }
     });
   </script>
 </body>

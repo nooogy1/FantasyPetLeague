@@ -1,4 +1,4 @@
-// frontend/js/app.js - FIXED Main frontend application logic
+// frontend/js/app.js - Main frontend application logic (Scraper Removed)
 
 // ===== Configuration =====
 
@@ -49,8 +49,6 @@ async function apiCall(endpoint, options = {}) {
       headers,
     });
 
-    // IMPORTANT: Only clear auth on ACTUAL auth errors (401 from auth endpoints)
-    // Don't clear auth on other errors like 404, 500, etc.
     if ((response.status === 401 || response.status === 403) && endpoint.includes('/auth')) {
       console.warn('Auth error on /auth endpoint, clearing localStorage');
       clearAuth();
@@ -84,7 +82,6 @@ function showAlert(message, type = 'info') {
   const container = document.querySelector('.container') || document.body;
   container.insertBefore(alertDiv, container.firstChild);
   
-  // Auto-dismiss after 5 seconds
   setTimeout(() => {
     if (alertDiv.parentNode) alertDiv.remove();
   }, 5000);
@@ -122,7 +119,6 @@ async function handleSignup(event) {
     
     showAlert(`Welcome ${firstName}! Account created successfully!`, 'success');
     
-    // Redirect to dashboard after short delay
     setTimeout(() => {
       window.location.href = '/dashboard.html';
     }, 1500);
@@ -141,10 +137,7 @@ async function handleLogin(event) {
   event.preventDefault();
   const form = event.target;
   
-  // Get passphrase from hidden input
   const passphrase = document.getElementById('login-passphrase').value;
-  
-  // Get first name
   const firstNameInput = document.getElementById('login-first-name');
   const firstName = firstNameInput?.value;
 
@@ -171,7 +164,6 @@ async function handleLogin(event) {
     
     showAlert(`Welcome back, ${firstName}!`, 'success');
     
-    // Check if user is admin
     if (response.user.is_admin) {
       setTimeout(() => {
         window.location.href = '/admin-dashboard';
@@ -278,15 +270,9 @@ function viewLeague(leagueId) {
 
 // ===== Pets =====
 
-async function loadAvailablePets(filters = {}) {
+async function loadAvailablePets(leagueId) {
   try {
-    const params = new URLSearchParams();
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) params.append(key, value);
-    });
-
-    const url = params.toString() ? `/api/pets?${params}` : '/api/pets';
-    const pets = await apiCall(url);
+    const pets = await apiCall('/api/pets');
     
     if (!pets) return;
     
@@ -305,13 +291,13 @@ async function loadAvailablePets(filters = {}) {
           <div class="pet-card-breed">${pet.breed}</div>
         </div>
         <div class="pet-card-body">
-          <dl class="pet-info">
-            <dt>Type:</dt><dd>${pet.animal_type}</dd>
-            <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd>
-            <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd>
+          <div class="pet-info">
+            <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
+            <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
+            <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
             <dt>Source:</dt><dd><span class="badge">${pet.source}</span></dd>
-          </dl>
-          <button class="btn btn-primary btn-block" onclick="app.draftPet('${pet.pet_id}')">Draft</button>
+          </div>
+          ${leagueId ? `<button class="btn btn-primary btn-block" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -321,16 +307,49 @@ async function loadAvailablePets(filters = {}) {
   }
 }
 
-async function draftPet(petId) {
-  const leagueId = new URLSearchParams(window.location.search).get('id');
+async function loadPets() {
+  try {
+    const pets = await apiCall('/api/pets');
+    
+    if (!pets) return;
+    
+    const container = document.getElementById('pets-list');
+    if (!container) return;
+
+    if (pets.length === 0) {
+      container.innerHTML = '<p>No pets available yet.</p>';
+      return;
+    }
+
+    container.innerHTML = pets.map(pet => `
+      <div class="pet-card">
+        <div class="pet-card-header">
+          <h3>${pet.name}</h3>
+          <div class="pet-card-breed">${pet.breed}</div>
+        </div>
+        <div class="pet-card-body">
+          <div class="pet-info">
+            <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
+            <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
+            <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
+            <dt>Source:</dt><dd><span class="badge">${pet.source}</span></dd>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch (error) {
+    console.error('Error loading pets:', error);
+    showAlert('Error loading pets: ' + error.message, 'danger');
+  }
+}
+
+async function draftPet(petId, leagueId) {
   if (!leagueId) {
     showAlert('Please select a league first', 'warning');
     return;
   }
 
   try {
-    console.log('Drafting pet:', petId, 'to league:', leagueId);
-    
     const result = await apiCall('/api/drafting', {
       method: 'POST',
       body: JSON.stringify({ leagueId, petId }),
@@ -339,10 +358,45 @@ async function draftPet(petId) {
     if (!result) return;
 
     showAlert('Pet drafted successfully!', 'success');
-    loadAvailablePets();
+    location.reload();
   } catch (error) {
     console.error('Error drafting pet:', error);
     showAlert('Error drafting pet: ' + error.message, 'danger');
+  }
+}
+
+async function loadAllRosters(leagueId) {
+  try {
+    const rosters = await apiCall(`/api/drafting/league/${leagueId}/rosters`);
+    
+    if (!rosters) return;
+    
+    const container = document.getElementById('rosters-list');
+    if (!container) return;
+
+    const user = getUser();
+    const currentUserId = user?.userId;
+
+    if (rosters.length === 0) {
+      container.innerHTML = '<p>No rosters in this league yet.</p>';
+      return;
+    }
+
+    container.innerHTML = rosters.map(roster => {
+      const isCurrent = roster.user_id === currentUserId;
+      return `
+        <div class="roster-entry">
+          <div class="roster-owner ${isCurrent ? 'current' : ''}">
+            ${roster.first_name || 'Anonymous'}
+            ${isCurrent ? ' (You)' : ''}
+          </div>
+          <div class="roster-pet-count">${roster.pet_count || 0} pets</div>
+        </div>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error loading rosters:', error);
+    showAlert('Error loading rosters: ' + error.message, 'danger');
   }
 }
 
@@ -457,118 +511,11 @@ async function loadLeaderboard(leagueId) {
   }
 }
 
-// ===== Scraper =====
-
-async function triggerScrape() {
-  const btn = document.getElementById('scrape-btn');
-  const status = document.getElementById('scrape-status');
-  
-  if (!btn) {
-    console.warn('Scrape button not found');
-    return;
-  }
-
-  // Check if user is logged in
-  const token = getToken();
-  if (!token) {
-    showAlert('You must be logged in to run the scraper', 'warning');
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '🔄 Scraping... (this may take 1-2 minutes)';
-  if (status) status.textContent = 'Starting scraper...';
-
-  try {
-    console.log('Triggering scraper...');
-    
-    const result = await apiCall('/admin/scrape', {
-      method: 'POST',
-    });
-
-    if (!result) {
-      showAlert('Scraper request failed', 'danger');
-      if (status) status.textContent = 'Scraper failed';
-      return;
-    }
-
-    // Handle different response statuses
-    if (result.status === 'running') {
-      showAlert('✅ Scraper started! Running in background. Check logs for results.', 'success');
-      if (status) {
-        status.innerHTML = `
-          <strong>🔄 Scraper Running</strong><br>
-          Started at: ${new Date().toLocaleTimeString()}<br>
-          Typically takes 30-60 seconds to complete.<br>
-          <br>
-          <em>You can close this page. Results will be saved automatically.</em>
-        `;
-        status.style.color = '#3498db';
-      }
-      return;
-    }
-
-    if (result.status === 'completed') {
-      if (status) {
-        status.innerHTML = `
-          <strong>✅ Scraper Complete!</strong><br>
-          Pets Found: ${result.pets_found || 0}<br>
-          New Pets: ${result.new_pets || 0}<br>
-          Removed Pets: ${result.removed_pets || 0}<br>
-          Points Awarded: ${result.points_awarded || 0}<br>
-          Duration: ${result.duration || 'N/A'}
-        `;
-        status.style.color = '#27ae60';
-      }
-      showAlert(`✅ Scraper complete! Found ${result.pets_found} pets.`, 'success');
-      
-      // Reload leagues after scrape
-      setTimeout(() => loadLeagues(), 2000);
-      return;
-    }
-
-    // Handle success
-    if (result.success) {
-      showAlert('✅ Scraper completed successfully!', 'success');
-      if (status) {
-        status.innerHTML = `
-          <strong>✅ Scrape Complete!</strong><br>
-          ${result.message || 'Results saved to database.'}
-        `;
-        status.style.color = '#27ae60';
-      }
-      
-      // Reload leagues after scrape
-      setTimeout(() => loadLeagues(), 2000);
-      return;
-    }
-  } catch (error) {
-    console.error('Scraper error:', error);
-    
-    if (error.message.includes('Admin access required') || error.message.includes('403')) {
-      showAlert('Only admins can run the scraper', 'warning');
-    } else if (error.message.includes('404')) {
-      showAlert('Scraper endpoint not found. Make sure admin routes are registered.', 'danger');
-    } else {
-      showAlert(`Scraper error: ${error.message}`, 'danger');
-    }
-    
-    if (status) {
-      status.textContent = `Error: ${error.message}`;
-      status.style.color = '#e74c3c';
-    }
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🔄 Run Scraper Now';
-  }
-}
-
 // ===== Page Initialization =====
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Page loaded, initializing...');
   
-  // Check for error messages
   const params = new URLSearchParams(window.location.search);
   
   if (params.get('login') === 'required') {
@@ -579,7 +526,6 @@ document.addEventListener('DOMContentLoaded', () => {
     showAlert('Your session expired. Please log in again.', 'warning');
   }
 
-  // Initialize page-specific functionality
   const page = document.body.getAttribute('data-page');
   console.log('Page type:', page);
   
@@ -626,17 +572,14 @@ window.app = {
   
   // Pet functions
   loadAvailablePets,
+  loadPets,
   draftPet,
   
   // Roster functions
-  loadRoster,
-  undraftPet,
+  loadAllRosters,
   
   // Leaderboard functions
   loadLeaderboard,
-  
-  // Scraper functions
-  triggerScrape,
   
   // Utility functions
   showAlert,

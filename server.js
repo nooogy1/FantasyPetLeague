@@ -1,9 +1,7 @@
-// server.js - Fantasy Pet League Backend API (Updated with modular routes)
+// server.js - Fantasy Pet League Backend API (Scraper Removed)
 const express = require('express');
 const { Pool } = require('pg');
-const bcrypt = require('bcrypt');
 const cors = require('cors');
-const jwt = require('jsonwebtoken');
 const path = require('path');
 require('dotenv').config();
 
@@ -12,7 +10,6 @@ app.use(express.json());
 app.use(cors());
 
 // ============ SERVE STATIC FILES ============
-// Serve frontend files from root and subdirectories
 app.use(express.static(path.join(__dirname, 'frontend')));
 app.use(express.static(path.join(__dirname)));
 
@@ -29,7 +26,7 @@ console.log('JWT_SECRET:', process.env.JWT_SECRET ? '✓ Set' : '✗ Using defau
 
 // ============ IMPORT ROUTE MODULES ============
 
-let authRoutes, leagueRoutes, draftingRoutes, leaderboardRoutes, petRoutes;
+let authRoutes, leagueRoutes, draftingRoutes, leaderboardRoutes, petRoutes, adminRoutes;
 
 try {
   authRoutes = require('./backend/routes/auth');
@@ -66,30 +63,21 @@ try {
   console.error('✗ Failed to load pet routes:', e.message);
 }
 
-let adminRoutes;
+// Admin routes for breed management only (no scraper endpoint)
 try {
   adminRoutes = require('./backend/routes/admin');
-  console.log('✓ Admin routes loaded (with scraper endpoint)');
+  console.log('✓ Admin routes loaded (breed management only)');
 } catch (e) {
-  // If admin.js doesn't exist, try admin-dashboard.js
-  try {
-    adminRoutes = require('./admin-dashboard');
-    console.log('✓ Admin dashboard routes loaded');
-  } catch (e2) {
-    console.error('✗ Failed to load admin routes:', e2.message);
-  }
+  console.error('✗ Failed to load admin routes:', e.message);
 }
 
 // ============ REGISTER ROUTES ============
 
-// Use modular route handlers with /api prefix
 if (authRoutes) app.use('/api/auth', authRoutes);
 if (leagueRoutes) app.use('/api/leagues', leagueRoutes);
 if (draftingRoutes) app.use('/api/drafting', draftingRoutes);
 if (leaderboardRoutes) app.use('/api/leaderboard', leaderboardRoutes);
 if (petRoutes) app.use('/api/pets', petRoutes);
-
-// Register admin routes WITHOUT /api prefix (so /admin/scrape works)
 if (adminRoutes) app.use('/admin', adminRoutes);
 
 console.log('\n✓ All routes registered:');
@@ -98,7 +86,7 @@ console.log('  - /api/leagues');
 console.log('  - /api/drafting');
 console.log('  - /api/leaderboard');
 console.log('  - /api/pets');
-console.log('  - /admin (admin routes including /admin/scrape)');
+console.log('  - /admin (breed management only - scraper removed)');
 
 // ============ SERVE HTML PAGES ============
 
@@ -125,7 +113,11 @@ app.get('/league.html', (req, res) => {
 // ============ HEALTH CHECK ============
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Fantasy Pet League is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'Fantasy Pet League is running',
+    scraperInfo: 'Scraper runs independently via GitHub Actions (2 AM UTC daily)'
+  });
 });
 
 // ============ API ENDPOINTS LIST ============
@@ -174,7 +166,6 @@ app.get('/api/endpoints', (req, res) => {
       'GET /api/pets/stats/draft-popularity'
     ],
     admin: [
-      'POST /admin/scrape (admin only)',
       'GET /admin/stats (admin only)',
       'GET /admin/breeds (admin only)',
       'GET /admin/breeds/missing (admin only)',
@@ -182,7 +173,8 @@ app.get('/api/endpoints', (req, res) => {
       'POST /admin/breeds (admin only)',
       'PUT /admin/breeds/:breedId (admin only)',
       'DELETE /admin/breeds/:breedId (admin only)',
-      'GET /admin/scraper-logs (admin only)'
+      'GET /admin/scraper-logs (admin only)',
+      'NOTE: Scraper endpoint removed - runs via GitHub Actions'
     ]
   });
 });
@@ -203,7 +195,6 @@ app.use((err, req, res, next) => {
 
 // ============ DISCORD BOT ============
 
-// Optional: Start Discord bot if token is provided
 if (process.env.DISCORD_BOT_TOKEN) {
   try {
     const { startBot } = require('./discord-bot');
@@ -225,5 +216,9 @@ app.listen(PORT, () => {
   console.log(`Admin Dashboard: http://localhost:${PORT}/admin-dashboard`);
   console.log(`API Docs: http://localhost:${PORT}/api/endpoints`);
   console.log(`Health Check: http://localhost:${PORT}/health`);
+  console.log(`\n📍 Scraper Info:`);
+  console.log(`   Runs independently via GitHub Actions`);
+  console.log(`   Schedule: Daily at 2 AM UTC`);
+  console.log(`   Status: Check scraper_logs table for history`);
   console.log(`${'='.repeat(60)}\n`);
 });

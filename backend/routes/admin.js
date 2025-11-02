@@ -1,18 +1,16 @@
-// backend/routes/admin.js - Admin endpoints for management tasks
+// backend/routes/admin.js - Admin endpoints (Scraper Removed)
+// NOTE: Scraper has been moved to standalone GitHub Actions cron job
+// This file now handles ONLY breed point management
 const express = require('express');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
-const path = require('path');
-const { spawn } = require('child_process');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
-
-console.log('[Admin Routes] Loaded with JWT_SECRET:', JWT_SECRET ? '✓' : '✗');
 
 // ============ MIDDLEWARE ============
 
@@ -21,182 +19,44 @@ const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    console.log(`[Auth Check] Token present: ${!!token}, Header: ${authHeader ? 'yes' : 'no'}`);
-
     if (!token) {
-      console.log('[Auth] No token provided');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
       if (err) {
-        console.log('[Auth] Token verification failed:', err.message);
         return res.status(403).json({ error: 'Invalid or expired token' });
       }
-      console.log('[Auth] Token valid for user:', user.userId);
       req.user = user;
       next();
     });
   } catch (error) {
-    console.error('[Auth] Unexpected error:', error.message);
     res.status(500).json({ error: 'Authentication error: ' + error.message });
   }
 };
 
 const requireAdmin = async (req, res, next) => {
   try {
-    console.log('[Admin Check] Checking admin status for user:', req.user.userId);
-
     const result = await pool.query(
       'SELECT is_admin FROM users WHERE id = $1',
       [req.user.userId]
     );
 
     if (!result.rows[0]) {
-      console.log('[Admin] User not found:', req.user.userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
     const isAdmin = result.rows[0].is_admin;
-    console.log('[Admin] User is_admin:', isAdmin);
 
     if (!isAdmin) {
-      console.log('[Admin] Access denied - not an admin');
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    console.log('[Admin] Access granted');
     next();
   } catch (error) {
-    console.error('[Admin] Database error:', error.message);
     res.status(500).json({ error: 'Admin check error: ' + error.message });
   }
 };
-
-// ============ TRIGGER PET SCRAPER ============
-
-router.post('/scrape', authenticateToken, async (req, res) => {
-  try {
-    console.log('[Scraper] ====================================');
-    console.log('[Scraper] Scraper triggered by user:', req.user.userId);
-    
-    // Spawn Python scraper as child process (non-blocking)
-    const pythonScript = path.join(__dirname, '../../scraper/daily_scraper.py');
-    
-    console.log('[Scraper] Python script path:', pythonScript);
-    console.log('[Scraper] Starting scraper process...');
-    
-    const pythonProcess = spawn('python3', [pythonScript], {
-      env: { ...process.env },
-      detached: true, // Run independently
-    });
-
-    let output = '';
-    let errorOutput = '';
-    let timedOut = false;
-    let responseSent = false;
-
-    // Set timeout - if scraper takes > 5 seconds, return and let it run in background
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      console.log('[Scraper] Timeout reached (5s), returning response and continuing in background');
-      
-      if (!responseSent) {
-        responseSent = true;
-        res.json({
-          success: true,
-          status: 'running',
-          message: 'Scraper started and running in background. Check admin logs for results.',
-          note: 'Scraper typically takes 30-60 seconds to complete.',
-        });
-      }
-    }, 5000); // Wait up to 5 seconds for initial response
-
-    pythonProcess.stdout.on('data', (data) => {
-      output += data.toString();
-      console.log('[Scraper Output]', data.toString());
-    });
-
-    pythonProcess.stderr.on('data', (data) => {
-      errorOutput += data.toString();
-      console.error('[Scraper Error]', data.toString());
-    });
-
-    pythonProcess.on('close', (code) => {
-      clearTimeout(timeout);
-
-      console.log('[Scraper] Process closed with code:', code);
-
-      if (timedOut) {
-        // Already sent response, just log
-        console.log('[Scraper] Already sent response, just logging completion');
-        return;
-      }
-
-      if (code !== 0) {
-        console.error('[Scraper] Failed with code:', code);
-        if (!responseSent) {
-          responseSent = true;
-          return res.status(500).json({
-            success: false,
-            error: `Scraper failed: ${errorOutput}`,
-          });
-        }
-        return;
-      }
-
-      try {
-        // Parse JSON from last line of output
-        const lines = output.trim().split('\n');
-        const jsonLine = lines[lines.length - 1];
-        const result = JSON.parse(jsonLine);
-
-        console.log('[Scraper] Complete:', result);
-        
-        if (!responseSent) {
-          responseSent = true;
-          res.json({
-            success: true,
-            status: 'completed',
-            ...result,
-          });
-        }
-      } catch (error) {
-        console.error('[Scraper] Failed to parse output:', error);
-        if (!responseSent) {
-          responseSent = true;
-          res.json({
-            success: true,
-            status: 'completed',
-            message: 'Scraper completed. Check logs for details.',
-          });
-        }
-      }
-    });
-
-    pythonProcess.on('error', (error) => {
-      clearTimeout(timeout);
-      console.error('[Scraper] Failed to start:', error.message);
-      
-      if (!responseSent) {
-        responseSent = true;
-        res.status(500).json({
-          success: false,
-          error: `Failed to start scraper: ${error.message}`,
-        });
-      }
-    });
-
-    // Unref to allow parent process to exit
-    pythonProcess.unref();
-    
-    console.log('[Scraper] Process spawned successfully');
-    console.log('[Scraper] ====================================');
-  } catch (error) {
-    console.error('[Scraper] Unexpected error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // ============ BREED POINTS ENDPOINTS ============
 
@@ -352,6 +212,8 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ============ SCRAPER LOGS (Read-Only) ============
 
 router.get('/scraper-logs', authenticateToken, requireAdmin, async (req, res) => {
   try {
