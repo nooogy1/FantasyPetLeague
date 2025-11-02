@@ -234,18 +234,20 @@
 
   <script src="/frontend/js/app.js"></script>
   <script>
+    let currentLeagueId = null;
+
     document.addEventListener('DOMContentLoaded', () => {
-      const leagueId = new URLSearchParams(window.location.search).get('id');
-      if (!leagueId) {
+      currentLeagueId = new URLSearchParams(window.location.search).get('id');
+      if (!currentLeagueId) {
         window.location.href = '/dashboard.html';
         return;
       }
 
-      console.log('[LEAGUE] Loading league view:', leagueId);
+      console.log('[LEAGUE] Loading league view:', currentLeagueId);
       
-      app.loadLeaderboard(leagueId);
-      app.loadLeagueRosters(leagueId);
-      app.loadLeagueAvailablePets(leagueId);
+      app.loadLeaderboard(currentLeagueId);
+      app.loadLeagueRosters(currentLeagueId);
+      app.loadLeagueAvailablePets(currentLeagueId);
     });
   </script>
 </body>

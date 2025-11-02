@@ -447,7 +447,7 @@ async function loadAllPets() {
   try {
     console.log('[PETS] Loading all pets...');
     
-    const pets = await apiCall('/api/pets');
+    const pets = await apiCall('/api/pets?limit=1000');
     
     console.log('[PETS] Got response with', pets?.length, 'pets');
     
@@ -562,7 +562,7 @@ function renderLeagueAvailablePetsPagination(totalPets) {
   return html;
 }
 
-function goToLeaguePetsPage(pageNum, leagueId) {
+function goToLeaguePetsPage(pageNum) {
   const totalPages = Math.ceil(leagueAvailablePetsData.length / LEAGUE_PETS_PER_PAGE);
   
   if (pageNum < 1 || pageNum > totalPages) return;
@@ -595,7 +595,7 @@ function goToLeaguePetsPage(pageNum, leagueId) {
             <span class="pet-stat"><strong>Source:</strong> ${source}</span>
             <span class="pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
           </div>
-          <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
+          <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="app.draftPet('${pet.pet_id}', currentLeagueId)">Draft Pet</button>
         </div>
       </div>
     `;
@@ -614,7 +614,7 @@ function goToLeaguePetsPage(pageNum, leagueId) {
 
 async function loadLeagueAvailablePets(leagueId) {
   try {
-    const allPets = await apiCall('/api/pets');
+    const allPets = await apiCall('/api/pets?limit=1000');
     const leaguePets = await apiCall(`/api/drafting/league/${leagueId}/pets`);
     
     if (!allPets) return;
