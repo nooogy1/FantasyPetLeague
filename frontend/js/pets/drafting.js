@@ -28,6 +28,50 @@ window.draftPet = async function(petId, leagueId) {
   }
 };
 
+// NEW: Draft pet and preserve page (for league view)
+window.draftPetLeaguePreservePage = async function(petId, leagueId) {
+  if (!leagueId) {
+    window.showAlert('Please select a league first', 'warning');
+    return;
+  }
+
+  try {
+    console.log('[DRAFT-PRESERVE] Drafting pet', petId, 'to league', leagueId);
+    
+    // Save current page
+    const currentPage = typeof window.leagueCurrentPage !== 'undefined' 
+      ? window.leagueCurrentPage 
+      : 1;
+    console.log('[DRAFT-PRESERVE] Saving page:', currentPage);
+    
+    const result = await window.apiCall('/api/drafting', {
+      method: 'POST',
+      body: JSON.stringify({ leagueId, petId }),
+    });
+
+    if (!result) return;
+
+    console.log('[DRAFT-PRESERVE] Success');
+    window.showAlert('Pet drafted successfully!', 'success');
+    
+    setTimeout(() => {
+      console.log('[DRAFT-PRESERVE] Restoring page:', currentPage);
+      // Reload rosters and pets while preserving page
+      if (window.app && window.app.loadLeagueRosters) {
+        window.app.loadLeagueRosters(leagueId);
+      }
+      // Restore page
+      window.leagueCurrentPage = currentPage;
+      if (window.app && window.app.loadLeagueAvailablePets) {
+        window.app.loadLeagueAvailablePets(leagueId);
+      }
+    }, 500);
+  } catch (error) {
+    console.error('[DRAFT-PRESERVE Error]:', error);
+    window.showAlert('Error drafting pet: ' + error.message, 'danger');
+  }
+};
+
 window.undraftPet = async function(petId, leagueId) {
   if (!confirm('Remove this pet from your roster?')) return;
 

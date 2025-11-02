@@ -48,7 +48,7 @@ window.loadLeagueRosters = async function(leagueId) {
           <div class="roster-pet-with-photo">
             <div class="roster-pet-photo">
               ${pet.photo_url 
-                ? `<img src="${pet.photo_url}" alt="${pet.name}" onerror="this.style.display='none'">`
+                ? `<img src="${pet.photo_url}" alt="${pet.name}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;" onerror="this.parentElement.innerHTML='<div style=\\"display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #ecf0f1; color: #95a5a6; font-size: 32px;\\">📷</div>';">`
                 : '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #ecf0f1; color: #95a5a6; font-size: 32px;">📷</div>'
               }
             </div>
@@ -109,7 +109,7 @@ window.loadRoster = async function(leagueId) {
           <div class="pet-grid-item">
             <div class="pet-grid-photo">
               ${pet.photo_url 
-                ? `<img src="${pet.photo_url}" alt="${pet.name}" onerror="this.style.display='none'">`
+                ? `<img src="${pet.photo_url}" alt="${pet.name}" style="width: 100%; height: 100%; object-fit: cover; object-position: center;" onerror="this.parentElement.innerHTML='<div style=\\"display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #ecf0f1; color: #95a5a6; font-size: 32px;\\">📷</div>';">`
                 : '<div class="pet-photo-placeholder">📷</div>'
               }
             </div>

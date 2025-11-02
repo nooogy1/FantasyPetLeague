@@ -156,7 +156,7 @@ function renderLeaguePetCard(pet, leagueId) {
           <span class="pet-grid-detail"><strong>Source:</strong> ${source}</span>
           <span class="pet-grid-detail"><strong>In Shelter:</strong> ${daysInShelter}d</span>
         </div>
-        <button class="btn btn-primary btn-block pet-grid-button" onclick="window.draftPetLeague('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
+        <button class="btn btn-primary btn-block pet-grid-button" onclick="window.draftPetLeaguePreservePage('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
       </div>
     </div>
   `;
