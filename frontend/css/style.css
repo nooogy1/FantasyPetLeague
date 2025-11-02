@@ -838,3 +838,250 @@ nav a:hover {
     border-bottom: none;
   }
 }
+
+/* ===== Pet Photos CSS Addition ===== */
+/* ADD THIS TO THE END OF frontend/css/style.css */
+
+/* ===== Pet Photos ===== */
+
+.pet-photo {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+  margin: 12px 0;
+  display: block;
+}
+
+.pet-photo-container {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px 0;
+}
+
+.pet-photo-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.pet-photo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #95a5a6;
+  font-size: 48px;
+}
+
+/* Pet Card with Photo */
+.pet-card-with-photo {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.pet-card-photo-section {
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pet-card-photo-section img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* Roster Pet Card with Photo */
+.roster-pet-with-photo {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  background: white;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  border: 1px solid #ecf0f1;
+}
+
+.roster-pet-photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.roster-pet-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.roster-pet-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.roster-pet-name {
+  font-weight: 600;
+  color: #3498db;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.roster-pet-stats {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.6;
+}
+
+.roster-pet-stat {
+  display: inline-block;
+  margin-right: 12px;
+  padding-right: 12px;
+  border-right: 1px solid #ecf0f1;
+}
+
+.roster-pet-stat:last-child {
+  border-right: none;
+}
+
+/* Dashboard All Pets Grid with Photos */
+.pet-grid-item {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.pet-grid-item:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.pet-grid-photo {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.pet-grid-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.pet-grid-info {
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.pet-grid-header {
+  margin-bottom: 8px;
+}
+
+.pet-grid-name {
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 4px 0;
+  font-size: 16px;
+}
+
+.pet-grid-breed {
+  font-size: 13px;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.pet-grid-details {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.pet-grid-detail {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.pet-grid-detail strong {
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.pet-grid-button {
+  margin-top: auto;
+  padding: 8px;
+  width: 100%;
+}
+
+/* Responsive adjustments for pet photos */
+@media (max-width: 1024px) {
+  .roster-pet-with-photo {
+    grid-template-columns: 100px 1fr;
+  }
+
+  .roster-pet-photo {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+@media (max-width: 768px) {
+  .roster-pet-with-photo {
+    grid-template-columns: 80px 1fr;
+  }
+
+  .roster-pet-photo {
+    width: 80px;
+    height: 80px;
+  }
+
+  .roster-pet-name {
+    font-size: 14px;
+  }
+
+  .pet-grid-photo {
+    height: 150px;
+  }
+
+  .pet-grid-name {
+    font-size: 14px;
+  }
+}

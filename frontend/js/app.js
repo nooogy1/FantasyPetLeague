@@ -1,4 +1,4 @@
-// frontend/js/app.js - Main frontend application logic with all enhancements
+// frontend/js/app.js - Main frontend application logic with PET PHOTOS integrated
 
 // ===== Configuration =====
 
@@ -7,10 +7,15 @@ const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'user_data';
 const PETS_PER_PAGE = 12;
 const MAX_ROSTER_SIZE = 10;
+const LEAGUE_PETS_PER_PAGE = 12;
 
-// Pagination state
+// Pagination state - Main dashboard
 let petsCurrentPage = 1;
 let allPetsData = [];
+
+// Pagination state - League available pets
+let leagueAvailablePetsData = [];
+let leagueAvailablePetsPage = 1;
 
 // ===== Utility Functions =====
 
@@ -380,29 +385,38 @@ function viewLeague(leagueId) {
   window.location.href = `/league.html?id=${leagueId}`;
 }
 
-// ===== Pets =====
+// ===== Pets - WITH PHOTOS ===== 
 
+// RENDER PET CARD - Dashboard All Pets (WITH PHOTO)
 function renderPetCard(pet) {
   const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
+  
   return `
-    <div class="pet-card">
-      <div class="pet-card-header">
-        <h3>${pet.name}</h3>
-        <div class="pet-card-breed">${pet.breed}</div>
+    <div class="pet-grid-item">
+      <div class="pet-grid-photo">
+        ${pet.photo_url 
+          ? `<img src="${pet.photo_url}" alt="${pet.name}" onerror="this.style.display='none'">`
+          : '<div class="pet-photo-placeholder">📷</div>'
+        }
       </div>
-      <div class="pet-card-body">
-        <div class="pet-info">
-          <dt>Type:</dt><dd>${pet.animal_type}</dd><br>
-          <dt>Gender:</dt><dd>${pet.gender || 'N/A'}</dd><br>
-          <dt>Age:</dt><dd>${pet.age || 'N/A'}</dd><br>
-          <dt>Source:</dt><dd>${pet.source || 'Unknown'}</dd><br>
-          <dt>In Shelter:</dt><dd>${daysInShelter} days</dd>
+      <div class="pet-grid-info">
+        <div class="pet-grid-header">
+          <h3 class="pet-grid-name">${pet.name}</h3>
+          <p class="pet-grid-breed">${pet.breed}</p>
         </div>
+        <div class="pet-grid-details">
+          <span class="pet-grid-detail"><strong>Type:</strong> ${pet.animal_type}</span>
+          <span class="pet-grid-detail"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+          <span class="pet-grid-detail"><strong>Age:</strong> ${pet.age || 'N/A'}</span>
+          <span class="pet-grid-detail"><strong>In Shelter:</strong> ${daysInShelter}d</span>
+        </div>
+        <button class="btn btn-primary btn-block pet-grid-button" style="margin-top: auto;">View Details</button>
       </div>
     </div>
   `;
 }
 
+// RENDER PAGINATION - Main dashboard pets
 function renderPetsPagination() {
   const totalPages = Math.ceil(allPetsData.length / PETS_PER_PAGE);
   
@@ -444,6 +458,7 @@ function renderPetsPagination() {
   return html;
 }
 
+// LOAD ALL PETS - Dashboard (WITH PHOTOS)
 async function loadAllPets() {
   try {
     console.log('[PETS] Loading all pets...');
@@ -491,6 +506,7 @@ async function loadAllPets() {
   }
 }
 
+// GO TO PAGE - Main dashboard pets
 function goToPetsPage(pageNum) {
   const totalPages = Math.ceil(allPetsData.length / PETS_PER_PAGE);
   
@@ -517,11 +533,82 @@ function goToPetsPage(pageNum) {
   console.log('[PETS] Navigated to page', petsCurrentPage);
 }
 
-// Pagination state for league available pets
-let leagueAvailablePetsData = [];
-let leagueAvailablePetsPage = 1;
-const LEAGUE_PETS_PER_PAGE = 12;
+// LOAD LEAGUE AVAILABLE PETS (WITH PHOTOS)
+async function loadLeagueAvailablePets(leagueId) {
+  try {
+    const allPets = await apiCall('/api/pets?limit=1000');
+    const leaguePets = await apiCall(`/api/drafting/league/${leagueId}/pets`);
+    
+    if (!allPets) return;
+    
+    const container = document.getElementById('pets-list');
+    if (!container) return;
 
+    const draftedPetIds = new Set(leaguePets?.map(p => p.pet_id) || []);
+    const availablePets = allPets.filter(p => !draftedPetIds.has(p.pet_id));
+
+    if (availablePets.length === 0) {
+      container.innerHTML = '<p>No available pets to draft. All pets in this league have been drafted!</p>';
+      return;
+    }
+
+    // Store all available pets for pagination
+    leagueAvailablePetsData = availablePets;
+    leagueAvailablePetsPage = 1;
+
+    // Calculate pagination
+    const start = (leagueAvailablePetsPage - 1) * LEAGUE_PETS_PER_PAGE;
+    const end = start + LEAGUE_PETS_PER_PAGE;
+    const petsToDisplay = availablePets.slice(start, end);
+
+    const petsHtml = petsToDisplay.map(pet => {
+      const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
+      const source = pet.source || 'Unknown';
+      return `
+        <div class="pet-grid-item">
+          <div class="pet-grid-photo">
+            ${pet.photo_url 
+              ? `<img src="${pet.photo_url}" alt="${pet.name}" onerror="this.style.display='none'">`
+              : '<div class="pet-photo-placeholder">📷</div>'
+            }
+          </div>
+          <div class="pet-grid-info">
+            <div class="pet-grid-header">
+              <h3 class="pet-grid-name">${pet.name}</h3>
+              <p class="pet-grid-breed">${pet.breed}</p>
+            </div>
+            <div class="pet-grid-details">
+              <span class="pet-grid-detail"><strong>Type:</strong> ${pet.animal_type}</span>
+              <span class="pet-grid-detail"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+              <span class="pet-grid-detail"><strong>Age:</strong> ${pet.age || 'N/A'}</span>
+              <span class="pet-grid-detail"><strong>Source:</strong> ${source}</span>
+              <span class="pet-grid-detail"><strong>In Shelter:</strong> ${daysInShelter}d</span>
+            </div>
+            <button class="btn btn-primary btn-block pet-grid-button" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const pagination = renderLeagueAvailablePetsPagination(availablePets.length);
+
+    container.innerHTML = `
+      <div class="grid grid-3">${petsHtml}</div>
+      ${pagination}
+    `;
+
+    console.log('[LEAGUE_PETS] Rendered page', leagueAvailablePetsPage, 'with', petsToDisplay.length, 'pets (total:', availablePets.length, ')');
+  } catch (error) {
+    console.error('[LEAGUE_PETS] Error:', error);
+    const container = document.getElementById('pets-list');
+    if (container) {
+      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+    }
+    showAlert('Error loading pets: ' + error.message, 'danger');
+  }
+}
+
+// RENDER PAGINATION - League pets
 function renderLeagueAvailablePetsPagination(totalPets) {
   const totalPages = Math.ceil(totalPets / LEAGUE_PETS_PER_PAGE);
   
@@ -563,6 +650,7 @@ function renderLeagueAvailablePetsPagination(totalPets) {
   return html;
 }
 
+// GO TO PAGE - League pets
 function goToLeaguePetsPage(pageNum) {
   const totalPages = Math.ceil(leagueAvailablePetsData.length / LEAGUE_PETS_PER_PAGE);
   
@@ -581,22 +669,26 @@ function goToLeaguePetsPage(pageNum) {
     const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
     const source = pet.source || 'Unknown';
     return `
-      <div class="pet-card">
-        <div class="pet-card-header-gradient">
-          <div class="pet-card-title">
-            <h3>${pet.name}</h3>
-            <div class="pet-card-breed">${pet.breed}</div>
-          </div>
+      <div class="pet-grid-item">
+        <div class="pet-grid-photo">
+          ${pet.photo_url 
+            ? `<img src="${pet.photo_url}" alt="${pet.name}" onerror="this.style.display='none'">`
+            : '<div class="pet-photo-placeholder">📷</div>'
+          }
         </div>
-        <div class="pet-card-body">
-          <div class="pet-card-stats">
-            <span class="pet-stat"><strong>Type:</strong> ${pet.animal_type}</span>
-            <span class="pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
-            <span class="pet-stat"><strong>Age:</strong> ${pet.age || 'N/A'}</span>
-            <span class="pet-stat"><strong>Source:</strong> ${source}</span>
-            <span class="pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
+        <div class="pet-grid-info">
+          <div class="pet-grid-header">
+            <h3 class="pet-grid-name">${pet.name}</h3>
+            <p class="pet-grid-breed">${pet.breed}</p>
           </div>
-          <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="app.draftPet('${pet.pet_id}', currentLeagueId)">Draft Pet</button>
+          <div class="pet-grid-details">
+            <span class="pet-grid-detail"><strong>Type:</strong> ${pet.animal_type}</span>
+            <span class="pet-grid-detail"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+            <span class="pet-grid-detail"><strong>Age:</strong> ${pet.age || 'N/A'}</span>
+            <span class="pet-grid-detail"><strong>Source:</strong> ${source}</span>
+            <span class="pet-grid-detail"><strong>In Shelter:</strong> ${daysInShelter}d</span>
+          </div>
+          <button class="btn btn-primary btn-block pet-grid-button" onclick="app.draftPet('${pet.pet_id}', currentLeagueId)">Draft Pet</button>
         </div>
       </div>
     `;
@@ -613,76 +705,7 @@ function goToLeaguePetsPage(pageNum) {
   console.log('[LEAGUE_PETS] Navigated to page', leagueAvailablePetsPage);
 }
 
-async function loadLeagueAvailablePets(leagueId) {
-  try {
-    const allPets = await apiCall('/api/pets?limit=1000');
-    const leaguePets = await apiCall(`/api/drafting/league/${leagueId}/pets`);
-    
-    if (!allPets) return;
-    
-    const container = document.getElementById('pets-list');
-    if (!container) return;
-
-    const draftedPetIds = new Set(leaguePets?.map(p => p.pet_id) || []);
-    const availablePets = allPets.filter(p => !draftedPetIds.has(p.pet_id));
-
-    if (availablePets.length === 0) {
-      container.innerHTML = '<p>No available pets to draft. All pets in this league have been drafted!</p>';
-      return;
-    }
-
-    // Store all available pets for pagination
-    leagueAvailablePetsData = availablePets;
-    leagueAvailablePetsPage = 1;
-
-    // Calculate pagination
-    const start = (leagueAvailablePetsPage - 1) * LEAGUE_PETS_PER_PAGE;
-    const end = start + LEAGUE_PETS_PER_PAGE;
-    const petsToDisplay = availablePets.slice(start, end);
-
-    const petsHtml = petsToDisplay.map(pet => {
-      const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
-      const source = pet.source || 'Unknown';
-      return `
-        <div class="pet-card">
-          <div class="pet-card-header-gradient">
-            <div class="pet-card-title">
-              <h3>${pet.name}</h3>
-              <div class="pet-card-breed">${pet.breed}</div>
-            </div>
-          </div>
-          <div class="pet-card-body">
-            <div class="pet-card-stats">
-              <span class="pet-stat"><strong>Type:</strong> ${pet.animal_type}</span>
-              <span class="pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
-              <span class="pet-stat"><strong>Age:</strong> ${pet.age || 'N/A'}</span>
-              <span class="pet-stat"><strong>Source:</strong> ${source}</span>
-              <span class="pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
-            </div>
-            <button class="btn btn-primary btn-block" style="margin-top: 12px;" onclick="app.draftPet('${pet.pet_id}', '${leagueId}')">Draft Pet</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    const pagination = renderLeagueAvailablePetsPagination(availablePets.length);
-
-    container.innerHTML = `
-      <div class="grid grid-3">${petsHtml}</div>
-      ${pagination}
-    `;
-
-    console.log('[LEAGUE_PETS] Rendered page', leagueAvailablePetsPage, 'with', petsToDisplay.length, 'pets (total:', availablePets.length, ')');
-  } catch (error) {
-    console.error('[LEAGUE_PETS] Error:', error);
-    const container = document.getElementById('pets-list');
-    if (container) {
-      container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
-    }
-    showAlert('Error loading pets: ' + error.message, 'danger');
-  }
-}
-
+// DRAFT PET
 async function draftPet(petId, leagueId) {
   if (!leagueId) {
     showAlert('Please select a league first', 'warning');
@@ -723,6 +746,7 @@ async function draftPet(petId, leagueId) {
   }
 }
 
+// LOAD LEAGUE ROSTERS (WITH PHOTOS - SIDE BY SIDE)
 async function loadLeagueRosters(leagueId) {
   try {
     console.log('[ROSTERS] Loading rosters for league:', leagueId);
@@ -753,7 +777,7 @@ async function loadLeagueRosters(leagueId) {
       return (a.first_name || '').localeCompare(b.first_name || '');
     });
 
-    // Build roster display with player names and their pets
+    // Build roster display with player names and their pets with photos
     const rosterHtml = sortedRosters.map(roster => {
       const playerName = roster.first_name || 'Anonymous';
       const pets = roster.pets || [];
@@ -774,15 +798,23 @@ async function loadLeagueRosters(leagueId) {
         const source = pet.source || 'Unknown';
         
         return `
-          <div class="roster-pet">
-            <div class="roster-pet-name">${pet.name}</div>
-            <div class="roster-pet-stats">
-              <span class="roster-pet-stat"><strong>Type:</strong> ${pet.animal_type || 'N/A'}</span>
-              <span class="roster-pet-stat"><strong>Breed:</strong> ${pet.breed || 'N/A'}</span>
-              <span class="roster-pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
-              <span class="roster-pet-stat"><strong>Source:</strong> ${source}</span>
-              <span class="roster-pet-stat"><strong>On Roster:</strong> ${daysOnRoster}d</span>
-              <span class="roster-pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
+          <div class="roster-pet-with-photo">
+            <div class="roster-pet-photo">
+              ${pet.photo_url 
+                ? `<img src="${pet.photo_url}" alt="${pet.name}" onerror="this.style.display='none'">`
+                : '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">📷</div>'
+              }
+            </div>
+            <div class="roster-pet-info">
+              <div class="roster-pet-name">${pet.name}</div>
+              <div class="roster-pet-stats">
+                <span class="roster-pet-stat"><strong>Breed:</strong> ${pet.breed || 'N/A'}</span>
+                <span class="roster-pet-stat"><strong>Type:</strong> ${pet.animal_type || 'N/A'}</span>
+                <span class="roster-pet-stat"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+                <span class="roster-pet-stat"><strong>Source:</strong> ${source}</span>
+                <span class="roster-pet-stat"><strong>On Roster:</strong> ${daysOnRoster}d</span>
+                <span class="roster-pet-stat"><strong>In Shelter:</strong> ${daysInShelter}d</span>
+              </div>
             </div>
           </div>
         `;
@@ -797,7 +829,7 @@ async function loadLeagueRosters(leagueId) {
     }).join('');
 
     container.innerHTML = rosterHtml;
-    console.log('[ROSTERS] Rendered', rosters.length, 'rosters with current user first');
+    console.log('[ROSTERS] Rendered', rosters.length, 'rosters with photos');
   } catch (error) {
     console.error('[ROSTERS] Error:', error);
     const container = document.getElementById('rosters-list');
@@ -855,7 +887,7 @@ async function loadLeaderboard(leagueId) {
   }
 }
 
-// ===== Roster =====
+// ===== Roster - User's roster display (WITH PHOTOS) =====
 
 async function loadRoster(leagueId) {
   try {
@@ -874,33 +906,33 @@ async function loadRoster(leagueId) {
     }
 
     container.innerHTML = `
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Pet Name</th>
-            <th>Breed</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${roster.map(pet => `
-            <tr>
-              <td>${pet.name}</td>
-              <td>${pet.breed}</td>
-              <td>${pet.animal_type}</td>
-              <td><span class="badge ${pet.status === 'available' ? 'badge-success' : 'badge-danger'}">${pet.status}</span></td>
-              <td>
-                <button class="btn btn-danger btn-small" onclick="app.undraftPet('${pet.pet_id}', '${leagueId}')">Remove</button>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+        ${roster.map(pet => `
+          <div class="pet-grid-item">
+            <div class="pet-grid-photo">
+              ${pet.photo_url 
+                ? `<img src="${pet.photo_url}" alt="${pet.name}" onerror="this.style.display='none'">`
+                : '<div class="pet-photo-placeholder">📷</div>'
+              }
+            </div>
+            <div class="pet-grid-info">
+              <div class="pet-grid-header">
+                <h3 class="pet-grid-name">${pet.name}</h3>
+                <p class="pet-grid-breed">${pet.breed}</p>
+              </div>
+              <div class="pet-grid-details">
+                <span class="pet-grid-detail"><strong>Type:</strong> ${pet.animal_type}</span>
+                <span class="pet-grid-detail"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
+                <span class="pet-grid-detail"><strong>Status:</strong> <span class="badge ${pet.status === 'available' ? 'badge-success' : 'badge-danger'}">${pet.status}</span></span>
+              </div>
+              <button class="btn btn-danger btn-block pet-grid-button" onclick="app.undraftPet('${pet.pet_id}', '${leagueId}')">Remove</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
     `;
     
-    console.log('[ROSTER] Rendered', roster.length, 'pets');
+    console.log('[ROSTER] Rendered', roster.length, 'pets with photos');
   } catch (error) {
     console.error('[ROSTER] Error:', error);
     const container = document.getElementById('roster-list');
