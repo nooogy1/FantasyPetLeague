@@ -206,18 +206,13 @@ router.get('/id/:petId', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
-    const { type, status, source, breed, limit = 100, offset = 0 } = req.query;
-    let query = `SELECT * FROM pets WHERE 1=1`;
-    const params = [];
+    const { type, status = 'available', source, breed, limit = 1000, offset = 0 } = req.query;
+    let query = `SELECT * FROM pets WHERE status = $1`;
+    const params = [status];
 
     if (type) {
       params.push(type.charAt(0).toUpperCase() + type.slice(1).toLowerCase().replace('s', ''));
       query += ` AND animal_type = $${params.length}`;
-    }
-
-    if (status) {
-      params.push(status);
-      query += ` AND status = $${params.length}`;
     }
 
     if (source) {
