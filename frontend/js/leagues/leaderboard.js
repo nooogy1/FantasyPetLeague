@@ -1,13 +1,10 @@
 // frontend/js/leagues/leaderboard.js - Leaderboard functions
 
-import { apiCall } from '../utils/api.js';
-import { showAlert } from '../utils/ui.js';
-
-export async function loadLeaderboard(leagueId) {
+window.loadLeaderboard = async function(leagueId) {
   try {
     console.log('[LEADERBOARD] Loading for league:', leagueId);
     
-    const leaderboard = await apiCall(`/api/leaderboard/${leagueId}`);
+    const leaderboard = await window.apiCall(`/api/leaderboard/${leagueId}`);
     
     if (!leaderboard) return;
     
@@ -39,11 +36,13 @@ export async function loadLeaderboard(leagueId) {
     
     console.log('[LEADERBOARD] Rendered', leaderboard.length, 'entries');
   } catch (error) {
-    console.error('[LEADERBOARD] Error:', error);
+    console.error('[LEADERBOARD Error]:', error);
     const container = document.getElementById('leaderboard-list');
     if (container) {
       container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
     }
-    showAlert('Error loading leaderboard: ' + error.message, 'danger');
+    window.showAlert('Error loading leaderboard: ' + error.message, 'danger');
   }
-}
+};
+
+console.log('✓ leaderboard.js loaded');

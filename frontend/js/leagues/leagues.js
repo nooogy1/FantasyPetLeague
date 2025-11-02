@@ -1,37 +1,27 @@
 // frontend/js/leagues/leagues.js - League management functions
 
-import { apiCall } from '../utils/api.js';
-import { getUser } from '../utils/storage.js';
-import { showAlert } from '../utils/ui.js';
-
-export async function loadUserLeagues() {
+window.loadUserLeagues = async function() {
   try {
     console.log('[LEAGUES] Loading user leagues...');
-    const leagues = await apiCall('/api/leagues');
+    const leagues = await window.apiCall('/api/leagues');
     
     if (!leagues) {
       console.log('[LEAGUES] No response from API');
       return;
     }
     
-    console.log('[LEAGUES] Got response:', leagues);
-    
     const container = document.getElementById('your-leagues-list');
-    if (!container) {
-      console.warn('[LEAGUES] Container not found');
-      return;
-    }
+    if (!container) return;
 
     if (leagues.length === 0) {
       container.innerHTML = '<p>You are not in any leagues yet. Join one or create a new league!</p>';
       return;
     }
 
-    // Get member count for each league
     const leaguesWithCounts = await Promise.all(
       leagues.map(async (league) => {
         try {
-          const members = await apiCall(`/api/leagues/${league.id}/members`);
+          const members = await window.apiCall(`/api/leagues/${league.id}/members`);
           return { ...league, memberCount: members ? members.length : 0 };
         } catch (e) {
           console.warn('[LEAGUES] Could not load member count for', league.id);
@@ -50,32 +40,32 @@ export async function loadUserLeagues() {
       </div>
     `).join('');
     
-    console.log('[LEAGUES] Rendered', leagues.length, 'leagues with member counts');
+    console.log('[LEAGUES] Rendered', leagues.length, 'leagues');
   } catch (error) {
-    console.error('[LEAGUES] Error:', error);
+    console.error('[LEAGUES Error]:', error);
     const container = document.getElementById('your-leagues-list');
     if (container) {
       container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
     }
   }
-}
+};
 
-export async function loadAvailableLeagues() {
+window.loadAvailableLeagues = async function() {
   try {
     console.log('[AVAILABLE_LEAGUES] Loading...');
-    const leagues = await apiCall('/api/leagues/available');
+    const allLeagues = await window.apiCall('/api/leagues');
     
-    if (!leagues) return;
+    if (!allLeagues) return;
     
     const container = document.getElementById('available-leagues-list');
     if (!container) return;
 
-    if (leagues.length === 0) {
+    if (allLeagues.length === 0) {
       container.innerHTML = '<p>No available leagues to join.</p>';
       return;
     }
 
-    container.innerHTML = leagues.map(league => `
+    container.innerHTML = allLeagues.map(league => `
       <div class="league-entry">
         <div class="league-info">
           <div class="league-name">${league.name}</div>
@@ -85,65 +75,66 @@ export async function loadAvailableLeagues() {
       </div>
     `).join('');
     
-    console.log('[AVAILABLE_LEAGUES] Rendered', leagues.length, 'leagues');
+    console.log('[AVAILABLE_LEAGUES] Rendered', allLeagues.length, 'leagues');
   } catch (error) {
-    console.error('[AVAILABLE_LEAGUES] Error:', error);
+    console.error('[AVAILABLE_LEAGUES Error]:', error);
   }
-}
+};
 
-export async function createLeague(event) {
+window.createLeague = async function(event) {
   event.preventDefault();
   const form = event.target;
   const name = form.leagueName?.value;
-  const description = form.leagueDescription?.value;
 
   if (!name) {
-    showAlert('Please enter a league name', 'warning');
+    window.showAlert('Please enter a league name', 'warning');
     return;
   }
 
   try {
-    console.log('[CREATE_LEAGUE] Creating:', { name, description });
+    console.log('[CREATE_LEAGUE] Creating:', { name });
     
-    const response = await apiCall('/api/leagues', {
+    const response = await window.apiCall('/api/leagues', {
       method: 'POST',
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ name }),
     });
 
     if (!response) return;
 
     console.log('[CREATE_LEAGUE] Success');
-    showAlert('League created successfully!', 'success');
+    window.showAlert('League created successfully!', 'success');
     setTimeout(() => {
       window.location.href = `/league.html?id=${response.id}`;
     }, 1000);
   } catch (error) {
-    console.error('[CREATE_LEAGUE] Error:', error);
-    showAlert('Error creating league: ' + error.message, 'danger');
+    console.error('[CREATE_LEAGUE Error]:', error);
+    window.showAlert('Error creating league: ' + error.message, 'danger');
   }
-}
+};
 
-export async function joinLeague(leagueId) {
+window.joinLeague = async function(leagueId) {
   try {
     console.log('[JOIN_LEAGUE] Joining league:', leagueId);
     
-    const result = await apiCall(`/api/leagues/${leagueId}/join`, {
+    const result = await window.apiCall(`/api/leagues/${leagueId}/join`, {
       method: 'POST',
     });
 
     if (!result) return;
 
     console.log('[JOIN_LEAGUE] Success');
-    showAlert('Joined league successfully!', 'success');
+    window.showAlert('Joined league successfully!', 'success');
     setTimeout(() => {
       window.location.href = `/league.html?id=${leagueId}`;
     }, 1000);
   } catch (error) {
-    console.error('[JOIN_LEAGUE] Error:', error);
-    showAlert('Error joining league: ' + error.message, 'danger');
+    console.error('[JOIN_LEAGUE Error]:', error);
+    window.showAlert('Error joining league: ' + error.message, 'danger');
   }
-}
+};
 
-export function viewLeague(leagueId) {
+window.viewLeague = function(leagueId) {
   window.location.href = `/league.html?id=${leagueId}`;
-}
+};
+
+console.log('✓ leagues.js loaded');

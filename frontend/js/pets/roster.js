@@ -1,19 +1,12 @@
 // frontend/js/pets/roster.js - Roster display functions
 
-import { apiCall } from '../utils/api.js';
-import { getUser } from '../utils/storage.js';
-import { calculateDaysSince, showAlert } from '../utils/ui.js';
-
-export async function loadLeagueRosters(leagueId) {
+window.loadLeagueRosters = async function(leagueId) {
   try {
     console.log('[ROSTERS] Loading rosters for league:', leagueId);
     
-    const rosters = await apiCall(`/api/drafting/league/${leagueId}/rosters`);
+    const rosters = await window.apiCall(`/api/drafting/league/${leagueId}/rosters`);
     
-    if (!rosters) {
-      console.log('[ROSTERS] No rosters data');
-      return;
-    }
+    if (!rosters) return;
     
     const container = document.getElementById('rosters-list');
     if (!container) return;
@@ -23,7 +16,7 @@ export async function loadLeagueRosters(leagueId) {
       return;
     }
 
-    const currentUser = getUser();
+    const currentUser = window.getUser();
     const currentUserId = currentUser?.id;
 
     const sortedRosters = rosters.sort((a, b) => {
@@ -47,8 +40,8 @@ export async function loadLeagueRosters(leagueId) {
       }
 
       const petsHtml = pets.map(pet => {
-        const daysOnRoster = calculateDaysSince(pet.drafted_date);
-        const daysInShelter = calculateDaysSince(pet.brought_to_shelter);
+        const daysOnRoster = window.calculateDaysSince(pet.drafted_date);
+        const daysInShelter = window.calculateDaysSince(pet.brought_to_shelter);
         const source = pet.source || 'Unknown';
         
         return `
@@ -83,22 +76,22 @@ export async function loadLeagueRosters(leagueId) {
     }).join('');
 
     container.innerHTML = rosterHtml;
-    console.log('[ROSTERS] Rendered', rosters.length, 'rosters with photos');
+    console.log('[ROSTERS] Rendered', rosters.length, 'rosters');
   } catch (error) {
-    console.error('[ROSTERS] Error:', error);
+    console.error('[ROSTERS Error]:', error);
     const container = document.getElementById('rosters-list');
     if (container) {
       container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
     }
-    showAlert('Error loading rosters: ' + error.message, 'danger');
+    window.showAlert('Error loading rosters: ' + error.message, 'danger');
   }
-}
+};
 
-export async function loadRoster(leagueId) {
+window.loadRoster = async function(leagueId) {
   try {
     console.log('[ROSTER] Loading for league:', leagueId);
     
-    const roster = await apiCall(`/api/drafting/${leagueId}`);
+    const roster = await window.apiCall(`/api/drafting/${leagueId}`);
     
     if (!roster) return;
     
@@ -130,20 +123,22 @@ export async function loadRoster(leagueId) {
                 <span class="pet-grid-detail"><strong>Gender:</strong> ${pet.gender || 'N/A'}</span>
                 <span class="pet-grid-detail"><strong>Status:</strong> <span class="badge ${pet.status === 'available' ? 'badge-success' : 'badge-danger'}">${pet.status}</span></span>
               </div>
-              <button class="btn btn-danger btn-block pet-grid-button" onclick="window.app.undraftPet('${pet.pet_id}', '${leagueId}')">Remove</button>
+              <button class="btn btn-danger btn-block pet-grid-button" onclick="app.undraftPet('${pet.pet_id}', '${leagueId}')">Remove</button>
             </div>
           </div>
         `).join('')}
       </div>
     `;
     
-    console.log('[ROSTER] Rendered', roster.length, 'pets with photos');
+    console.log('[ROSTER] Rendered', roster.length, 'pets');
   } catch (error) {
-    console.error('[ROSTER] Error:', error);
+    console.error('[ROSTER Error]:', error);
     const container = document.getElementById('roster-list');
     if (container) {
       container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
     }
-    showAlert('Error loading roster: ' + error.message, 'danger');
+    window.showAlert('Error loading roster: ' + error.message, 'danger');
   }
-}
+};
+
+console.log('✓ roster.js loaded');

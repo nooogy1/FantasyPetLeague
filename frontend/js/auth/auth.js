@@ -1,82 +1,82 @@
 // frontend/js/auth/auth.js - Authentication functions
 
-import { apiCall } from '../utils/api.js';
-import { getToken, setToken, setUser, clearAuth } from '../utils/storage.js';
-import { showAlert } from '../utils/ui.js';
+// Functions exposed to window by this module
 
-export function checkAuth() {
-  const token = getToken();
+window.checkAuth = function() {
+  const token = window.getToken();
   if (!token) {
     window.location.href = '/index.html?login=required';
     return false;
   }
   return true;
-}
+};
 
-export async function handleSignup(event) {
+window.handleSignup = async function(event) {
   event.preventDefault();
   const form = event.target;
   const passphrase = form.passphrase?.value || document.getElementById('signup-passphrase').value;
-  const firstName = form.firstName?.value;
-  const city = form.city?.value;
+  const firstName = form.firstName?.value || document.getElementById('signup-first-name').value;
+  const city = form.city?.value || document.getElementById('signup-city').value;
 
   if (!passphrase || !firstName) {
-    showAlert('Please enter a passphrase and first name', 'warning');
+    window.showAlert('Please enter a passphrase and first name', 'warning');
     return;
   }
 
   try {
-    console.log('Signing up with:', { firstName, city });
+    console.log('[SIGNUP] Attempting signup:', { firstName, city });
     
-    const response = await apiCall('/api/auth/signup', {
+    const response = await window.apiCall('/api/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ passphrase, firstName, city }),
     });
 
     if (!response || !response.token) {
-      showAlert('Signup failed. Please try again.', 'danger');
+      window.showAlert('Signup failed. Please try again.', 'danger');
       return;
     }
 
-    setToken(response.token);
-    setUser(response.user);
+    window.setToken(response.token);
+    window.setUser(response.user);
     
-    showAlert(`Welcome ${firstName}! Account created successfully!`, 'success');
+    window.showAlert(`Welcome ${firstName}! Account created successfully!`, 'success');
     
     setTimeout(() => {
       window.location.href = '/dashboard.html';
     }, 1500);
   } catch (error) {
-    console.error('Signup error:', error);
-    showAlert(`Error: ${error.message}`, 'danger');
+    console.error('[SIGNUP Error]:', error);
+    window.showAlert(`Error: ${error.message}`, 'danger');
   }
-}
+};
 
-export async function handleLogin(event) {
+window.handleLogin = async function(event) {
   event.preventDefault();
   
   const passphrase = document.getElementById('login-passphrase').value;
 
   if (!passphrase) {
-    showAlert('Please enter your passphrase', 'warning');
+    window.showAlert('Please enter your passphrase', 'warning');
     return;
   }
 
   try {
-    const response = await apiCall('/api/auth/login', {
+    console.log('[LOGIN] Attempting login');
+    
+    const response = await window.apiCall('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ passphrase }),
     });
 
     if (!response || !response.token) {
-      showAlert('Login failed. Invalid passphrase.', 'danger');
+      window.showAlert('Login failed. Invalid passphrase.', 'danger');
       return;
     }
 
-    setToken(response.token);
-    setUser(response.user);
+    window.setToken(response.token);
+    window.setUser(response.user);
     
-    showAlert(`Welcome back!`, 'success');
+    window.showAlert(`Welcome back!`, 'success');
     
     if (response.user.is_admin) {
       setTimeout(() => {
@@ -88,13 +88,15 @@ export async function handleLogin(event) {
       }, 1000);
     }
   } catch (error) {
-    console.error('Login error:', error);
-    showAlert(`Login failed: ${error.message}`, 'danger');
+    console.error('[LOGIN Error]:', error);
+    window.showAlert(`Login failed: ${error.message}`, 'danger');
   }
-}
+};
 
-export function handleLogout() {
-  clearAuth();
-  showAlert('Logged out successfully', 'success');
+window.handleLogout = function() {
+  window.clearAuth();
+  window.showAlert('Logged out successfully', 'success');
   setTimeout(() => window.location.href = '/index.html', 1500);
-}
+};
+
+console.log('✓ auth.js loaded');
