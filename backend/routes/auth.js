@@ -1,4 +1,7 @@
-// backend/routes/auth.js - FIXED Authentication endpoints with better logging
+// backend/routes/auth.js - Authentication endpoints
+// LOGIN: Only passphrase required
+// SIGNUP: Passphrase + first name + optional city
+
 const express = require('express');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
@@ -11,7 +14,7 @@ const pool = new Pool({
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 
-console.log('[AUTH] JWT_SECRET configured:', JWT_SECRET ? '✓' : '✗');
+console.log('[AUTH] Initialized - Passphrase-based authentication');
 
 // ============ SIGNUP ============
 
@@ -22,7 +25,7 @@ router.post('/signup', async (req, res) => {
     console.log('[SIGNUP] Request received:', { firstName, city, hasPassphrase: !!passphrase });
 
     if (!passphrase || !firstName) {
-      console.log('[SIGNUP] Missing required fields');
+      console.log('[SIGNUP] Missing required fields: passphrase or firstName');
       return res.status(400).json({ error: 'Passphrase and first name required' });
     }
 
@@ -57,69 +60,67 @@ router.post('/signup', async (req, res) => {
   } catch (error) {
     console.error('[SIGNUP] Error:', error.code, error.message);
     
-    // Handle unique constraint violation
     if (error.code === '23505') {
-      return res.status(409).json({ error: 'User already exists with that name' });
+      return res.status(409).json({ error: 'An account with this passphrase already exists' });
     }
     
     res.status(500).json({ error: error.message });
   }
 });
 
-// ============ LOGIN ============
+// ============ LOGIN - PASSPHRASE ONLY ============
 
 router.post('/login', async (req, res) => {
   try {
-    const { passphrase, firstName } = req.body;
+    const { passphrase } = req.body;
 
-    console.log('[LOGIN] Request received:', { firstName, hasPassphrase: !!passphrase });
+    console.log('[LOGIN] Request received - passphrase-only login');
 
-    if (!passphrase || !firstName) {
-      console.log('[LOGIN] Missing required fields');
-      return res.status(400).json({ error: 'Passphrase and first name required' });
+    if (!passphrase) {
+      console.log('[LOGIN] Missing passphrase');
+      return res.status(400).json({ error: 'Passphrase required' });
     }
 
-    // Query user by first name
+    // Get ALL users to find passphrase match
     const result = await pool.query(
-      'SELECT id, first_name, city, is_admin, passphrase_hash FROM users WHERE first_name = $1 LIMIT 1',
-      [firstName]
+      'SELECT id, first_name, city, is_admin, passphrase_hash FROM users'
     );
 
-    if (result.rows.length === 0) {
-      console.log('[LOGIN] User not found:', firstName);
-      return res.status(401).json({ error: 'User not found. Please check your name or sign up first.' });
+    console.log('[LOGIN] Searching through', result.rows.length, 'accounts...');
+
+    let matchedUser = null;
+
+    // Compare passphrase against all users
+    for (const user of result.rows) {
+      const match = await bcrypt.compare(passphrase, user.passphrase_hash);
+      if (match) {
+        matchedUser = user;
+        console.log('[LOGIN] ✓ Passphrase match found for:', user.first_name);
+        break;
+      }
     }
 
-    const user = result.rows[0];
-    console.log('[LOGIN] User found:', { id: user.id, firstName: user.first_name });
-
-    // Verify passphrase matches
-    console.log('[LOGIN] Comparing passphrases...');
-    const match = await bcrypt.compare(passphrase, user.passphrase_hash);
-    
-    if (!match) {
-      console.log('[LOGIN] Passphrase mismatch for user:', firstName);
-      return res.status(401).json({ error: 'Invalid passphrase. Please try again.' });
+    if (!matchedUser) {
+      console.log('[LOGIN] ✗ No account found with this passphrase');
+      return res.status(401).json({ error: 'Invalid passphrase. Account not found.' });
     }
-
-    console.log('[LOGIN] Passphrase matched successfully');
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, isAdmin: user.is_admin },
+      { userId: matchedUser.id, isAdmin: matchedUser.is_admin },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    console.log('[LOGIN] Token generated. Sending response...');
+    console.log('[LOGIN] ✓ Token generated. Authenticating user:', matchedUser.first_name);
 
     res.json({ 
       success: true,
       user: {
-        id: user.id,
-        first_name: user.first_name,
-        city: user.city,
-        is_admin: user.is_admin
+        id: matchedUser.id,
+        first_name: matchedUser.first_name,
+        city: matchedUser.city,
+        is_admin: matchedUser.is_admin
       },
       token 
     });
@@ -136,7 +137,7 @@ router.post('/verify', async (req, res) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    console.log('[VERIFY] Token verification request. Header present:', !!authHeader);
+    console.log('[VERIFY] Token verification request');
 
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -147,7 +148,7 @@ router.post('/verify', async (req, res) => {
         console.log('[VERIFY] Token invalid:', err.message);
         return res.status(403).json({ error: 'Invalid token', details: err.message });
       }
-      console.log('[VERIFY] Token valid for user:', user.userId);
+      console.log('[VERIFY] ✓ Token valid for user:', user.userId);
       res.json({ valid: true, userId: user.userId, isAdmin: user.isAdmin });
     });
   } catch (error) {
@@ -156,11 +157,10 @@ router.post('/verify', async (req, res) => {
   }
 });
 
-// ============ DEBUG ENDPOINT ============
+// ============ DEBUG ENDPOINTS (dev only) ============
 
 router.get('/debug/users', async (req, res) => {
   try {
-    // Only allow in development
     if (process.env.NODE_ENV === 'production') {
       return res.status(403).json({ error: 'Not available in production' });
     }

@@ -87,9 +87,9 @@
       border-radius: 4px;
       padding: 12px;
       margin-top: 20px;
-      font-size: 12px;
+      font-size: 11px;
       font-family: monospace;
-      max-height: 300px;
+      max-height: 250px;
       overflow-y: auto;
     }
     
@@ -104,13 +104,13 @@
       border: 1px solid #ddd;
       border-radius: 3px;
       padding: 8px;
-      line-height: 1.4;
+      line-height: 1.3;
       color: #333;
     }
     
     .debug-log-entry {
-      margin-bottom: 4px;
-      padding: 4px;
+      margin-bottom: 3px;
+      padding: 2px 4px;
       border-radius: 2px;
     }
     
@@ -129,24 +129,14 @@
       color: #22543d;
     }
     
-    .debug-log-entry.warning {
-      background: #feebc8;
-      color: #7c2d12;
-    }
-    
-    .debug-toggle {
-      margin-top: 12px;
-      padding: 6px 12px;
-      font-size: 11px;
-      background: #666;
-      color: white;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-    }
-    
-    .debug-toggle:hover {
-      background: #444;
+    .info-box {
+      background: #e3f2fd;
+      border-left: 4px solid #2196F3;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #1565c0;
     }
   </style>
 </head>
@@ -165,22 +155,26 @@
         <button class="auth-tab-btn" onclick="switchAuthTab('signup')">Sign Up</button>
       </div>
 
-      <!-- Login Form -->
-      <form id="login-form" class="auth-form active" onsubmit="handleLoginWithDebug(event)">
+      <!-- ===== LOGIN FORM ===== -->
+      <form id="login-form" class="auth-form active" onsubmit="handleLogin(event)">
+        <div class="info-box">
+          🔑 Login with just your <strong>3-word passphrase</strong>
+        </div>
+
         <div class="passphrase-generator">
-          <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50;">Select Your Passphrase</p>
+          <p style="margin: 0 0 12px 0; font-weight: 600; color: #2c3e50;">Enter Your Passphrase</p>
           
           <div class="passphrase-row">
             <div>
               <label for="login-prefix-select">Adverb</label>
               <select id="login-prefix-select" onchange="updateLoginPassphraseDisplay()">
-                <option value="">Loading...</option>
+                <option value="">Select...</option>
               </select>
             </div>
             <div>
               <label for="login-adjective-select">Adjective</label>
               <select id="login-adjective-select" onchange="updateLoginPassphraseDisplay()">
-                <option value="">Loading...</option>
+                <option value="">Select...</option>
               </select>
             </div>
           </div>
@@ -189,7 +183,7 @@
             <div style="grid-column: 1 / -1;">
               <label for="login-breed-select">Breed</label>
               <select id="login-breed-select" onchange="updateLoginPassphraseDisplay()">
-                <option value="">Loading...</option>
+                <option value="">Select...</option>
               </select>
             </div>
           </div>
@@ -199,21 +193,25 @@
           </div>
         </div>
 
-        <input type="hidden" id="login-passphrase" name="passphrase" value="" required>
+        <input type="hidden" id="login-passphrase" value="" required>
         <button type="submit" class="btn btn-primary btn-block">Login</button>
       </form>
 
-      <!-- Signup Form -->
-      <form id="signup-form" class="auth-form" onsubmit="handleSignupWithDebug(event)">
+      <!-- ===== SIGNUP FORM ===== -->
+      <form id="signup-form" class="auth-form" onsubmit="handleSignup(event)">
+        <div class="info-box">
+          ✍️ Create account with your <strong>name</strong> and <strong>3-word passphrase</strong>
+        </div>
+
         <div class="form-group">
-          <label for="signup-first-name">Your Name</label>
+          <label for="signup-first-name">Your Display Name</label>
           <input 
             type="text" 
             id="signup-first-name" 
-            name="firstName" 
-            placeholder="Enter your name"
+            placeholder="e.g., John"
             required
           >
+          <small style="color: #7f8c8d;">Your name for leaderboards (not your login)</small>
         </div>
 
         <div class="form-group">
@@ -221,7 +219,6 @@
           <input 
             type="text" 
             id="signup-city" 
-            name="city" 
             placeholder="Where are you from?"
           >
         </div>
@@ -233,13 +230,13 @@
             <div>
               <label for="prefix-select">Adverb</label>
               <select id="prefix-select" onchange="updatePassphraseDisplay()">
-                <option value="">Loading...</option>
+                <option value="">Select...</option>
               </select>
             </div>
             <div>
               <label for="adjective-select">Adjective</label>
               <select id="adjective-select" onchange="updatePassphraseDisplay()">
-                <option value="">Loading...</option>
+                <option value="">Select...</option>
               </select>
             </div>
           </div>
@@ -248,7 +245,7 @@
             <div style="grid-column: 1 / -1;">
               <label for="breed-select">Breed</label>
               <select id="breed-select" onchange="updatePassphraseDisplay()">
-                <option value="">Loading...</option>
+                <option value="">Select...</option>
               </select>
             </div>
           </div>
@@ -257,259 +254,175 @@
             select words above
           </div>
           <button type="button" class="btn btn-secondary copy-btn" onclick="copyPassphrase()">
-            📋 Copy to Clipboard
+            📋 Copy Passphrase
           </button>
         </div>
 
-        <input type="hidden" id="signup-passphrase" name="passphrase" value="" required>
+        <input type="hidden" id="signup-passphrase" value="" required>
         <button type="submit" class="btn btn-primary btn-block">Create Account</button>
       </form>
 
       <!-- Debug Panel -->
       <div class="debug-panel">
-        <h4>🔍 Debug Console</h4>
+        <h4>🔍 Debug Log</h4>
         <div class="debug-log" id="debug-log"></div>
-        <button class="debug-toggle" onclick="clearDebugLog()">Clear Log</button>
       </div>
 
       <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ecf0f1; text-align: center; color: #7f8c8d; font-size: 14px;">
         <p><strong>How it works:</strong></p>
-        <p>1. Create an account with your name and a 3-word passphrase</p>
-        <p>2. Create or join a league with friends</p>
-        <p>3. Draft adoptable pets from your local shelter</p>
-        <p>4. Earn points when pets get adopted</p>
-        <p>5. Compete on the leaderboard! 🏆</p>
+        <p>1️⃣ Sign up with your name and passphrase</p>
+        <p>2️⃣ Login anytime with just your passphrase</p>
+        <p>3️⃣ Create or join leagues with friends</p>
+        <p>4️⃣ Draft pets and earn points</p>
+        <p>5️⃣ Climb the leaderboard! 🏆</p>
       </div>
     </div>
   </div>
 
   <script>
-    // ===== Debug Logging System =====
+    // ===== Simple Debug Logging =====
     
     const debugLogs = [];
-    const MAX_LOGS = 50;
 
-    function log(type, message, data = null) {
-      const timestamp = new Date().toLocaleTimeString();
-      const logEntry = { type, message, data, timestamp };
-      debugLogs.push(logEntry);
-      
-      if (debugLogs.length > MAX_LOGS) {
-        debugLogs.shift();
-      }
+    function log(type, msg, data = null) {
+      const time = new Date().toLocaleTimeString();
+      debugLogs.push({ type, msg, data, time });
+      if (debugLogs.length > 40) debugLogs.shift();
 
-      // Console log
-      console.log(`[${type.toUpperCase()}] ${message}`, data || '');
-
-      // UI log
+      console.log(`[${type.toUpperCase()}] ${msg}`, data || '');
       updateDebugUI();
     }
 
     function updateDebugUI() {
-      const debugLog = document.getElementById('debug-log');
-      debugLog.innerHTML = debugLogs.map(entry => {
-        let emoji = '📝';
-        if (entry.type === 'error') emoji = '❌';
-        else if (entry.type === 'success') emoji = '✅';
-        else if (entry.type === 'warning') emoji = '⚠️';
-
-        let dataStr = '';
-        if (entry.data) {
-          dataStr = `<br><small>${JSON.stringify(entry.data).slice(0, 100)}...</small>`;
-        }
-
+      const container = document.getElementById('debug-log');
+      container.innerHTML = debugLogs.map(entry => {
+        const emoji = entry.type === 'error' ? '❌' : entry.type === 'success' ? '✅' : '📝';
         return `<div class="debug-log-entry ${entry.type}">
-          ${emoji} [${entry.timestamp}] ${entry.message}${dataStr}
+          ${emoji} [${entry.time}] ${entry.msg}
         </div>`;
       }).join('');
-
-      // Auto-scroll to bottom
-      debugLog.scrollTop = debugLog.scrollHeight;
+      container.scrollTop = container.scrollHeight;
     }
 
-    function clearDebugLog() {
-      debugLogs.length = 0;
-      updateDebugUI();
-      log('info', 'Debug log cleared');
-    }
+    // ===== API Call =====
 
-    // ===== API Wrapper with Logging =====
-
-    async function apiCallWithLogging(endpoint, options = {}) {
-      log('info', `API Request: ${options.method || 'GET'} ${endpoint}`);
-
+    async function apiCall(endpoint, options = {}) {
       const token = localStorage.getItem('auth_token');
-      const headers = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      };
-
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        log('info', 'Token attached to request');
-      } else {
-        log('warning', 'No token in localStorage');
-      }
+      const headers = { 'Content-Type': 'application/json', ...options.headers };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       try {
-        const response = await fetch(endpoint, {
-          ...options,
-          headers,
-        });
-
-        log('info', `API Response: ${response.status}`, { status: response.status, ok: response.ok });
-
+        const response = await fetch(endpoint, { ...options, headers });
+        
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          log('error', `API Error: ${response.status}`, errorData);
-          throw new Error(errorData.error || `HTTP ${response.status}`);
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.error || `HTTP ${response.status}`);
         }
 
-        const data = await response.json();
-        log('success', 'API Response received', { hasToken: !!data.token, hasUser: !!data.user });
-        return data;
+        return await response.json();
       } catch (error) {
-        log('error', 'API Call Failed', { message: error.message, endpoint });
+        log('error', `API failed: ${error.message}`);
         throw error;
       }
     }
 
-    // ===== Auth Functions with Logging =====
+    // ===== Auth Functions =====
 
-    async function handleLoginWithDebug(event) {
+    async function handleLogin(event) {
       event.preventDefault();
-      log('info', '=== LOGIN ATTEMPT STARTED ===');
+      log('info', '🔑 LOGIN START');
 
       const passphrase = document.getElementById('login-passphrase').value;
-      const firstName = document.getElementById('login-prefix-select').value 
-        ? 'Custom' 
-        : localStorage.getItem('login_first_name') || 'Unknown';
-
-      log('info', 'Form data collected', { passphrase: passphrase ? '***hidden***' : 'empty', firstName });
 
       if (!passphrase) {
-        log('error', 'Passphrase is empty!');
-        alert('Please select a passphrase');
+        log('error', 'Passphrase is empty');
+        alert('❌ Please select a passphrase');
         return;
       }
 
       try {
-        log('info', 'Sending login request to /api/auth/login');
-        
-        const response = await apiCallWithLogging('/api/auth/login', {
+        log('info', `Sending: POST /api/auth/login`);
+        const response = await apiCall('/api/auth/login', {
           method: 'POST',
-          body: JSON.stringify({ passphrase, firstName }),
+          body: JSON.stringify({ passphrase }),
         });
 
-        log('info', 'Login response received');
-
         if (!response.token) {
-          log('error', 'No token in response', response);
-          alert('Login failed: No token received');
+          log('error', 'No token in response');
+          alert('❌ Login failed');
           return;
         }
 
-        log('success', 'Token received from server');
-
-        // Store token
+        log('success', `✅ Login successful for ${response.user.first_name}`);
         localStorage.setItem('auth_token', response.token);
-        log('info', 'Token stored in localStorage');
+        localStorage.setItem('user_data', JSON.stringify(response.user));
 
-        // Store user data
-        if (response.user) {
-          localStorage.setItem('user_data', JSON.stringify(response.user));
-          log('info', 'User data stored', { id: response.user.id, name: response.user.first_name });
-        }
-
-        log('success', 'Authentication successful!');
-        log('info', 'Redirecting to dashboard...');
-
-        alert('✅ Login successful!');
-        
         setTimeout(() => {
-          if (response.user.is_admin) {
-            window.location.href = '/admin-dashboard';
-          } else {
-            window.location.href = '/dashboard.html';
-          }
-        }, 1000);
-
+          window.location.href = response.user.is_admin ? '/admin-dashboard' : '/dashboard.html';
+        }, 500);
       } catch (error) {
-        log('error', 'Login failed', { message: error.message });
-        alert(`❌ Login failed: ${error.message}`);
+        log('error', error.message);
+        alert(`❌ ${error.message}`);
       }
     }
 
-    async function handleSignupWithDebug(event) {
+    async function handleSignup(event) {
       event.preventDefault();
-      log('info', '=== SIGNUP ATTEMPT STARTED ===');
+      log('info', '✍️ SIGNUP START');
 
-      const firstName = document.getElementById('signup-first-name').value;
-      const city = document.getElementById('signup-city').value;
+      const firstName = document.getElementById('signup-first-name').value.trim();
+      const city = document.getElementById('signup-city').value.trim();
       const passphrase = document.getElementById('signup-passphrase').value;
 
-      log('info', 'Form data collected', { firstName, city, passphrase: passphrase ? '***hidden***' : 'empty' });
+      if (!firstName) {
+        log('error', 'Name is empty');
+        alert('❌ Please enter your name');
+        return;
+      }
 
-      if (!passphrase || !firstName) {
-        log('error', 'Missing required fields', { firstName: !!firstName, passphrase: !!passphrase });
-        alert('Please enter your name and select a passphrase');
+      if (!passphrase) {
+        log('error', 'Passphrase is empty');
+        alert('❌ Please select a passphrase');
         return;
       }
 
       try {
-        log('info', 'Sending signup request to /api/auth/signup');
-
-        const response = await apiCallWithLogging('/api/auth/signup', {
+        log('info', `Sending: POST /api/auth/signup`);
+        const response = await apiCall('/api/auth/signup', {
           method: 'POST',
-          body: JSON.stringify({ passphrase, firstName, city }),
+          body: JSON.stringify({ firstName, city, passphrase }),
         });
 
-        log('info', 'Signup response received');
-
         if (!response.token) {
-          log('error', 'No token in response', response);
-          alert('Signup failed: No token received');
+          log('error', 'No token in response');
+          alert('❌ Signup failed');
           return;
         }
 
-        log('success', 'Account created and token received');
-
-        // Store token
+        log('success', `✅ Account created for ${firstName}`);
         localStorage.setItem('auth_token', response.token);
-        log('info', 'Token stored in localStorage');
-
-        // Store user data
-        if (response.user) {
-          localStorage.setItem('user_data', JSON.stringify(response.user));
-          log('info', 'User data stored', { id: response.user.id, name: response.user.first_name });
-        }
-
-        log('success', 'Registration successful!');
-        log('info', 'Redirecting to dashboard...');
+        localStorage.setItem('user_data', JSON.stringify(response.user));
 
         alert(`✅ Welcome ${firstName}!`);
-
         setTimeout(() => {
           window.location.href = '/dashboard.html';
-        }, 1000);
-
+        }, 500);
       } catch (error) {
-        log('error', 'Signup failed', { message: error.message });
-        alert(`❌ Signup failed: ${error.message}`);
+        log('error', error.message);
+        alert(`❌ ${error.message}`);
       }
     }
 
-    // ===== Utility Functions =====
+    // ===== Utilities =====
 
     async function loadWordlists() {
-      log('info', 'Loading wordlists from /api/wordlist');
-      
       try {
+        log('info', 'Loading wordlists...');
         const response = await fetch('/api/wordlist');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) throw new Error('Failed to load');
         
         const data = await response.json();
-        log('success', `Wordlists loaded: ${data.adverbs.length} adverbs, ${data.adjectives.length} adjectives, ${data.breeds.length} breeds`);
+        log('success', `Loaded ${data.adverbs.length} adverbs, ${data.adjectives.length} adjectives, ${data.breeds.length} breeds`);
         
         populateSelect('login-prefix-select', data.adverbs);
         populateSelect('login-adjective-select', data.adjectives);
@@ -519,35 +432,25 @@
         populateSelect('adjective-select', data.adjectives);
         populateSelect('breed-select', data.breeds);
       } catch (error) {
-        log('error', 'Failed to load wordlists', { message: error.message });
-        alert('Could not load wordlists. Please refresh the page.');
+        log('error', `Wordlist load failed: ${error.message}`);
       }
     }
 
-    function populateSelect(selectId, words) {
-      const select = document.getElementById(selectId);
+    function populateSelect(id, words) {
+      const select = document.getElementById(id);
       select.innerHTML = '<option value="">Select...</option>';
-      
-      words.forEach(word => {
+      words.forEach(w => {
         const option = document.createElement('option');
-        option.value = word;
-        option.textContent = word;
+        option.value = w;
+        option.textContent = w;
         select.appendChild(option);
       });
-
-      log('info', `Populated ${selectId} with ${words.length} options`);
     }
 
     function switchAuthTab(tab) {
-      log('info', `Switching to ${tab} tab`);
+      document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+      document.querySelectorAll('.auth-tab-btn').forEach(b => b.classList.remove('active'));
       
-      document.querySelectorAll('.auth-form').forEach(form => {
-        form.classList.remove('active');
-      });
-      document.querySelectorAll('.auth-tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-      });
-
       if (tab === 'login') {
         document.getElementById('login-form').classList.add('active');
         document.querySelectorAll('.auth-tab-btn')[0].classList.add('active');
@@ -562,18 +465,17 @@
       const adjective = document.getElementById('login-adjective-select').value;
       const breed = document.getElementById('login-breed-select').value;
       const display = document.getElementById('login-passphrase-display');
-      const hiddenInput = document.getElementById('login-passphrase');
+      const input = document.getElementById('login-passphrase');
 
       if (prefix && adjective && breed) {
         const passphrase = `${prefix} ${adjective} ${breed}`;
         display.textContent = passphrase;
         display.classList.remove('empty');
-        hiddenInput.value = passphrase;
-        log('info', 'Login passphrase selected', { passphrase });
+        input.value = passphrase;
       } else {
         display.textContent = 'select words above';
         display.classList.add('empty');
-        hiddenInput.value = '';
+        input.value = '';
       }
     }
 
@@ -582,50 +484,43 @@
       const adjective = document.getElementById('adjective-select').value;
       const breed = document.getElementById('breed-select').value;
       const display = document.getElementById('passphrase-display');
-      const hiddenInput = document.getElementById('signup-passphrase');
+      const input = document.getElementById('signup-passphrase');
 
       if (prefix && adjective && breed) {
         const passphrase = `${prefix} ${adjective} ${breed}`;
         display.textContent = passphrase;
         display.classList.remove('empty');
-        hiddenInput.value = passphrase;
-        log('info', 'Signup passphrase created', { passphrase });
+        input.value = passphrase;
       } else {
         display.textContent = 'select words above';
         display.classList.add('empty');
-        hiddenInput.value = '';
+        input.value = '';
       }
     }
 
     function copyPassphrase() {
-      const passphrase = document.getElementById('passphrase-display').textContent;
-      if (passphrase && passphrase !== 'select words above') {
-        navigator.clipboard.writeText(passphrase).then(() => {
-          log('success', 'Passphrase copied to clipboard', { passphrase });
-          const btn = event.target;
-          const original = btn.textContent;
-          btn.textContent = '✓ Copied!';
-          setTimeout(() => {
-            btn.textContent = original;
-          }, 2000);
-        });
+      const text = document.getElementById('passphrase-display').textContent;
+      if (text && text !== 'select words above') {
+        navigator.clipboard.writeText(text);
+        log('success', 'Passphrase copied to clipboard');
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.textContent = orig, 2000);
       }
     }
 
-    // ===== Page Initialization =====
+    // ===== Init =====
 
     document.addEventListener('DOMContentLoaded', () => {
       log('info', 'Page loaded');
-      log('info', 'Checking for existing token...');
-
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        log('info', 'Token found in localStorage, redirecting to dashboard');
+      
+      if (localStorage.getItem('auth_token')) {
+        log('info', 'Token found, redirecting...');
         window.location.href = '/dashboard.html';
         return;
       }
 
-      log('info', 'No token found, loading wordlists...');
       loadWordlists();
     });
   </script>
