@@ -982,7 +982,8 @@ window.app = {
   loadLeagueAvailablePets,
   draftPet,
   goToPetsPage,
-  goToLeaguePetsPage: () => {}, // Stub for compatibility
+  goToLeaguePetsPage,
+  goToLeaguePagePreserve,
   
   loadLeagueRosters,
   
@@ -992,5 +993,8 @@ window.app = {
   
   showAlert,
 };
+
+// FIX: Export goToLeaguePagePreserve to global scope so league.html can call it directly
+window.goToLeaguePagePreserve = goToLeaguePagePreserve;
 
 console.log('✓ app.js loaded and ready');
