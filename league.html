@@ -215,6 +215,116 @@
 
       <!-- Right Side - Available Pets -->
       <div class="league-right">
+        <!-- Filter Section -->
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card-header">
+            <h2>Filter & Sort Pets</h2>
+          </div>
+          <div class="card-body">
+            <!-- Row 1: Animal Type & Gender -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+              <div class="form-group">
+                <label for="filter-animal-type">Animal Type</label>
+                <select id="filter-animal-type" onchange="updatePetFilters()">
+                  <option value="">All Animals</option>
+                  <option value="Dog">Dogs</option>
+                  <option value="Cat">Cats</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="filter-gender">Gender</label>
+                <select id="filter-gender" onchange="updatePetFilters()">
+                  <option value="">All Genders</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Spayed Female">Spayed Female</option>
+                  <option value="Neutered Male">Neutered Male</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Row 2: Age Group & Breed -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+              <div class="form-group">
+                <label for="filter-age-group">Age Group</label>
+                <select id="filter-age-group" onchange="updatePetFilters()">
+                  <option value="">All Ages</option>
+                  <option value="puppy">Puppy/Kitten (&lt;1y)</option>
+                  <option value="young">Young (1-3y)</option>
+                  <option value="adult">Adult (3-7y)</option>
+                  <option value="senior">Senior (7y+)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="filter-breed">Breed (Search)</label>
+                <input 
+                  type="text" 
+                  id="filter-breed" 
+                  placeholder="Type breed name..."
+                  onkeyup="updatePetFilters()"
+                >
+              </div>
+            </div>
+
+            <!-- Row 3: Days in Shelter Range Slider -->
+            <div style="margin-bottom: 16px;">
+              <label style="font-weight: 600;">Days in Shelter: <span id="days-range-display" style="color: #3498db;">0 - 365</span> days</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+                <div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <label for="filter-days-min" style="font-size: 12px; font-weight: 600;">Min</label>
+                    <small id="days-min-value" style="color: #7f8c8d;">0 days</small>
+                  </div>
+                  <input 
+                    type="range" 
+                    id="filter-days-min" 
+                    min="0" 
+                    max="365" 
+                    value="0"
+                    onchange="updatePetFilters()"
+                    style="width: 100%; cursor: pointer;"
+                  >
+                </div>
+                <div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <label for="filter-days-max" style="font-size: 12px; font-weight: 600;">Max</label>
+                    <small id="days-max-value" style="color: #7f8c8d;">365 days</small>
+                  </div>
+                  <input 
+                    type="range" 
+                    id="filter-days-max" 
+                    min="0" 
+                    max="365" 
+                    value="365"
+                    onchange="updatePetFilters()"
+                    style="width: 100%; cursor: pointer;"
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 4: Sort & Reset -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+              <div class="form-group">
+                <label for="filter-sort">Sort By</label>
+                <select id="filter-sort" onchange="updatePetFilters()">
+                  <option value="name-az">Name A-Z</option>
+                  <option value="days-old">Days in Shelter (Oldest First)</option>
+                  <option value="days-new">Days in Shelter (Newest First)</option>
+                  <option value="age-old">Age (Oldest First)</option>
+                  <option value="age-new">Age (Youngest First)</option>
+                </select>
+              </div>
+              <div style="display: flex; align-items: flex-end;">
+                <button class="btn btn-outline" onclick="resetPetFilters()" style="width: 100%; cursor: pointer;">🔄 Clear All Filters</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Pets Card -->
         <div class="card">
           <div class="card-header">
             <h2>Available Pets to Draft</h2>
@@ -263,11 +373,6 @@
     document.addEventListener('DOMContentLoaded', () => {
       waitForApp();
     });
-
-    const originalDraftPet = function() {
-      if (window.app && window.app.draftPet) return window.app.draftPet;
-      return null;
-    };
 
     window.draftPetLeague = async function(petId, leagueId) {
       const savedPage = leagueCurrentPage;
