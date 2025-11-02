@@ -258,13 +258,10 @@
               </div>
 
               <div class="form-group">
-                <label for="filter-breed">Breed (Search)</label>
-                <input 
-                  type="text" 
-                  id="filter-breed" 
-                  placeholder="Type breed name..."
-                  onkeyup="updatePetFilters()"
-                >
+                <label for="filter-breed">Breed</label>
+                <select id="filter-breed" onchange="updatePetFilters()">
+                  <option value="">All Breeds</option>
+                </select>
               </div>
             </div>
 

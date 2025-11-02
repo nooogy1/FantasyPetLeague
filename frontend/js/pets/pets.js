@@ -5,6 +5,7 @@ let petsCurrentPage = 1;
 let leagueAvailablePetsData = [];
 let leagueAvailablePetsFiltered = [];
 let leagueAvailablePetsPage = 1;
+let availableBreeds = []; // Track available breeds for dropdown
 
 // Filter state
 let petFilters = {
@@ -43,6 +44,59 @@ function getAgeGroup(ageText) {
   return 'senior';
 }
 
+// ===== BREED DROPDOWN MANAGEMENT =====
+
+function getUniqueBreeds(pets, filterByAnimalType = null) {
+  const breedsSet = new Set();
+  
+  pets.forEach(pet => {
+    // Filter by animal type if specified
+    if (filterByAnimalType && pet.animal_type !== filterByAnimalType) {
+      return;
+    }
+    
+    if (pet.breed) {
+      breedsSet.add(pet.breed);
+    }
+  });
+  
+  // Convert to sorted array
+  return Array.from(breedsSet).sort((a, b) => a.localeCompare(b));
+}
+
+function regenerateBreedDropdown() {
+  const breedSelect = document.getElementById('filter-breed');
+  if (!breedSelect) return;
+  
+  // Get selected animal type
+  const selectedAnimalType = document.getElementById('filter-animal-type').value;
+  
+  // Get available breeds (filter by animal type if selected)
+  availableBreeds = getUniqueBreeds(leagueAvailablePetsData, selectedAnimalType || null);
+  
+  // Store current breed filter value
+  const currentBreed = petFilters.breed;
+  
+  // Rebuild dropdown
+  const options = ['<option value="">All Breeds</option>'];
+  availableBreeds.forEach(breed => {
+    options.push(`<option value="${breed}">${breed}</option>`);
+  });
+  
+  breedSelect.innerHTML = options.join('');
+  
+  // If previously selected breed is still in the filtered list, keep it selected
+  if (currentBreed && availableBreeds.includes(currentBreed)) {
+    breedSelect.value = currentBreed;
+  } else {
+    // Otherwise clear the breed filter
+    breedSelect.value = '';
+    petFilters.breed = '';
+  }
+  
+  console.log('[BREED_DROPDOWN] Regenerated with', availableBreeds.length, 'breeds');
+}
+
 function applyPetFilters(pets) {
   let filtered = [...pets];
   
@@ -64,11 +118,9 @@ function applyPetFilters(pets) {
     });
   }
   
-  // Breed filter (contains, case-insensitive)
+  // Breed filter (exact match from dropdown)
   if (petFilters.breed) {
-    filtered = filtered.filter(p => 
-      p.breed && p.breed.toLowerCase().includes(petFilters.breed.toLowerCase())
-    );
+    filtered = filtered.filter(p => p.breed === petFilters.breed);
   }
   
   // Days in Shelter filter
@@ -114,6 +166,9 @@ function applyPetFilters(pets) {
 function updatePetFilters() {
   console.log('[FILTERS] Updating pet filters');
   
+  // Get the animal type before update
+  const previousAnimalType = petFilters.animalType;
+  
   // Update filter state from UI
   petFilters.animalType = document.getElementById('filter-animal-type').value;
   petFilters.gender = document.getElementById('filter-gender').value;
@@ -122,6 +177,12 @@ function updatePetFilters() {
   petFilters.daysMin = parseInt(document.getElementById('filter-days-min').value);
   petFilters.daysMax = parseInt(document.getElementById('filter-days-max').value);
   petFilters.sort = document.getElementById('filter-sort').value;
+  
+  // If animal type changed, regenerate breed dropdown
+  if (previousAnimalType !== petFilters.animalType) {
+    console.log('[FILTERS] Animal type changed, regenerating breed dropdown');
+    regenerateBreedDropdown();
+  }
   
   // Update display values
   document.getElementById('days-min-value').textContent = petFilters.daysMin + ' days';
@@ -172,6 +233,9 @@ function resetPetFilters() {
   document.getElementById('days-min-value').textContent = '0 days';
   document.getElementById('days-max-value').textContent = '365 days';
   document.getElementById('days-range-display').textContent = '0 - 365';
+  
+  // Regenerate breed dropdown to show all breeds
+  regenerateBreedDropdown();
   
   // Show all pets
   leagueAvailablePetsFiltered = [...leagueAvailablePetsData];
@@ -400,6 +464,9 @@ window.loadLeagueAvailablePets = async function(leagueId) {
 
     // Store unfiltered data
     leagueAvailablePetsData = availablePets;
+    
+    // Initialize breed dropdown with all available breeds
+    regenerateBreedDropdown();
     
     // Initialize filtered data with all pets (sorted by default sort)
     leagueAvailablePetsFiltered = applyPetFilters(leagueAvailablePetsData);
