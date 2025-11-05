@@ -1,4 +1,4 @@
-// backend/routes/drafting.js - Pet drafting endpoints
+// backend/routes/drafting.js - Pet drafting endpoints with roster limit
 const express = require('express');
 const { Pool } = require('pg');
 const router = express.Router();
@@ -6,6 +6,9 @@ const router = express.Router();
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
+
+// Get roster limit from environment (default 10)
+const ROSTER_LIMIT = parseInt(process.env.ROSTER_LIMIT) || 10;
 
 // ============ MIDDLEWARE ============
 
@@ -36,6 +39,23 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'League and pet required' });
     }
 
+    // Check roster count for this user in this league
+    const rosterCountResult = await pool.query(
+      `SELECT COUNT(*) as count FROM roster_entries 
+       WHERE user_id = $1 AND league_id = $2`,
+      [userId, leagueId]
+    );
+
+    const rosterCount = parseInt(rosterCountResult.rows[0].count);
+
+    if (rosterCount >= ROSTER_LIMIT) {
+      return res.status(400).json({ 
+        error: `Roster limit reached (${ROSTER_LIMIT} pets max)`,
+        current: rosterCount,
+        limit: ROSTER_LIMIT
+      });
+    }
+
     // Get pet UUID from external pet_id
     const petResult = await pool.query(
       `SELECT id FROM pets WHERE pet_id = $1`,
@@ -56,7 +76,11 @@ router.post('/', authenticateToken, async (req, res) => {
       [userId, leagueId, petUUID]
     );
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({
+      ...result.rows[0],
+      current_roster_size: rosterCount + 1,
+      limit: ROSTER_LIMIT
+    });
   } catch (error) {
     if (error.code === '23505') {
       return res.status(409).json({ error: 'Pet already drafted in this league' });
@@ -92,7 +116,12 @@ router.get('/:leagueId', authenticateToken, async (req, res) => {
       [userId, leagueId]
     );
 
-    res.json(result.rows);
+    res.json({
+      pets: result.rows,
+      current_size: result.rows.length,
+      limit: ROSTER_LIMIT,
+      slots_remaining: ROSTER_LIMIT - result.rows.length
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -130,7 +159,18 @@ router.delete('/:petId/:leagueId', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Roster entry not found' });
     }
 
-    res.json({ success: true });
+    // Get updated roster size
+    const updatedCount = await pool.query(
+      `SELECT COUNT(*) as count FROM roster_entries 
+       WHERE user_id = $1 AND league_id = $2`,
+      [userId, leagueId]
+    );
+
+    res.json({ 
+      success: true,
+      current_size: parseInt(updatedCount.rows[0].count),
+      limit: ROSTER_LIMIT
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -149,6 +189,7 @@ router.get('/league/:leagueId/rosters', async (req, res) => {
         u.id as user_id,
         u.first_name,
         u.city,
+        COUNT(re.id) as roster_size,
         json_agg(
           json_build_object(
             'name', p.name,
@@ -172,7 +213,13 @@ router.get('/league/:leagueId/rosters', async (req, res) => {
       [leagueId]
     );
 
-    res.json(result.rows);
+    const rosters = result.rows.map(row => ({
+      ...row,
+      limit: ROSTER_LIMIT,
+      slots_remaining: ROSTER_LIMIT - row.roster_size
+    }));
+
+    res.json(rosters);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
