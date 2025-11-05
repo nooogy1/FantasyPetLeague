@@ -27,6 +27,22 @@
       margin-bottom: 12px;
     }
 
+    .roster-size-info {
+      display: inline-block;
+      background: #e8f4f8;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #2980b9;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .roster-size-info.full {
+      background: #fed7d7;
+      color: #742a2a;
+    }
+
     .roster-pet {
       background: white;
       padding: 12px;
@@ -162,6 +178,44 @@
       100% { transform: rotate(360deg); }
     }
 
+    /* Roster limit alert */
+    .roster-limit-alert {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 4px;
+      padding: 12px;
+      margin-bottom: 16px;
+      color: #856404;
+      font-size: 14px;
+      display: none;
+    }
+
+    .roster-limit-alert.show {
+      display: block;
+    }
+
+    .roster-limit-progress {
+      background: #ecf0f1;
+      border-radius: 4px;
+      height: 6px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .roster-limit-progress-bar {
+      height: 100%;
+      background: #3498db;
+      transition: all 0.3s ease;
+    }
+
+    .roster-limit-progress-bar.warning {
+      background: #f39c12;
+    }
+
+    .roster-limit-progress-bar.full {
+      background: #e74c3c;
+    }
+
     @media (max-width: 1024px) {
       .league-container {
         grid-template-columns: 1fr;
@@ -215,6 +269,15 @@
 
       <!-- Right Side - Available Pets -->
       <div class="league-right">
+        <!-- Roster limit info (shown when near limit) -->
+        <div class="roster-limit-alert" id="roster-limit-alert">
+          <strong>📋 Roster Limit Alert</strong>
+          <p id="roster-limit-message" style="margin: 4px 0 0 0;"></p>
+          <div class="roster-limit-progress">
+            <div class="roster-limit-progress-bar" id="roster-limit-bar"></div>
+          </div>
+        </div>
+
         <!-- Filter Section -->
         <div class="card" style="margin-bottom: 20px;">
           <div class="card-header">
@@ -343,6 +406,8 @@
   <script>
     let currentLeagueId = null;
     let leagueCurrentPage = 1;
+    let currentUserRosterSize = 0;
+    let rosterLimit = 10; // Default, will be updated from API
 
     function initLeague() {
       currentLeagueId = new URLSearchParams(window.location.search).get('id');
@@ -356,6 +421,47 @@
       app.loadLeaderboard(currentLeagueId);
       app.loadLeagueRosters(currentLeagueId);
       app.loadLeagueAvailablePets(currentLeagueId);
+      updateRosterLimitDisplay();
+    }
+
+    // Update roster limit display
+    function updateRosterLimitDisplay() {
+      const userId = JSON.parse(localStorage.getItem('user_data') || '{}').id;
+      
+      window.apiCall(`/api/drafting/${currentLeagueId}`, {
+        method: 'GET'
+      }).then(data => {
+        if (data) {
+          currentUserRosterSize = data.current_size || 0;
+          rosterLimit = data.limit || 10;
+          
+          const alertBox = document.getElementById('roster-limit-alert');
+          const message = document.getElementById('roster-limit-message');
+          const progressBar = document.getElementById('roster-limit-bar');
+          
+          const percentage = (currentUserRosterSize / rosterLimit) * 100;
+          
+          // Update progress bar
+          progressBar.style.width = percentage + '%';
+          progressBar.classList.remove('warning', 'full');
+          
+          if (percentage >= 100) {
+            progressBar.classList.add('full');
+            message.textContent = `Your roster is FULL! (${currentUserRosterSize}/${rosterLimit} pets)`;
+            alertBox.classList.add('show');
+          } else if (percentage >= 75) {
+            progressBar.classList.add('warning');
+            message.textContent = `Your roster is getting full! (${currentUserRosterSize}/${rosterLimit} pets, ${rosterLimit - currentUserRosterSize} slots remaining)`;
+            alertBox.classList.add('show');
+          } else {
+            alertBox.classList.remove('show');
+          }
+          
+          console.log('[ROSTER_LIMIT] User has', currentUserRosterSize, '/', rosterLimit, 'pets');
+        }
+      }).catch(err => {
+        console.error('[ROSTER_LIMIT] Error:', err);
+      });
     }
 
     // Wait for app to be initialized before loading league data
@@ -369,6 +475,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       waitForApp();
+      // Update roster limit display every 3 seconds
+      setInterval(updateRosterLimitDisplay, 3000);
     });
 
     window.draftPetLeague = async function(petId, leagueId) {
@@ -381,6 +489,7 @@
           
           setTimeout(() => {
             console.log('[LEAGUE-DRAFT] Restoring page:', savedPage);
+            updateRosterLimitDisplay();
             app.loadLeagueRosters(leagueId);
             leagueCurrentPage = savedPage;
             app.loadLeagueAvailablePets(leagueId);
